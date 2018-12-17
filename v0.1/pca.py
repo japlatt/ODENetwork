@@ -1,12 +1,13 @@
-import matplotlib
-matplotlib.use("TKAgg")
+# might be useful for mac user, uncommnet below if needed
+# import matplotlib
+# matplotlib.use("TKAgg")
 
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
 from numpy import linalg as LA
-from mpl_toolkits.mplot3d import Axes3D 
+from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
 import matplotlib.cm as cm
 import itertools
@@ -14,7 +15,7 @@ import itertools
 '''Counts the number of spikes in a time series.  Works well
 for data that isn't very noisy and consists of Na spikes'''
 def num_spikes(V, spike_thresh = 0):
-    return np.sum(sp.logical_and(V[:-1] < 
+    return np.sum(sp.logical_and(V[:-1] <
                   spike_thresh, V[1:]>= spike_thresh))
 
 '''Returns array of network activity defined by number of spikes
@@ -65,6 +66,8 @@ v = pca.components_
 
 Xk = pca.transform(X)
 
+#save each odor/concatenation
+#60 bins in each concatenation
 for i in range(3):
 	for j in range(4):
 		start = i*240+j*60
@@ -79,7 +82,7 @@ for i in range(3):
 # print(np.shape(Xk[:240, :]))
 # print(np.shape(Xk[240:480, :]))
 
-plot for data with 3 odour and 4 concentrations per odour
+#plot for data with 3 odour and 4 concentrations per odour
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 colors = itertools.cycle(["b", "y", "r"])
@@ -97,3 +100,21 @@ plt.show()
 
 
 
+=======
+np.savetxt('projected_AL_30-90.txt', Xk)
+
+#plot for data with 3 odour and 4 concentrations per odour
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# colors = itertools.cycle(["b", "y", "r"])
+# marker = itertools.cycle(['^', 'o', 's', 'p'])
+# c = next(colors)
+# m = next(marker)
+# for i in range(len(Xk[:,0])):
+#     if i%240 == 0 and i != 0:
+#         c = next(colors)
+#     if i%60 == 0 and i != 0:
+#         m = next(marker)
+#     ax.scatter(Xk[i, 0], Xk[i, 1], Xk[i, 2], color = c, marker = m)
+# plt.show()
+>>>>>>> upstream/master
