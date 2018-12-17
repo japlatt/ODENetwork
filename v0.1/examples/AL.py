@@ -11,12 +11,6 @@ projection neurons with the local field potential.
 from __future__ import absolute_import, division, print_function
 from __future__ import unicode_literals
 import sys
-if sys.version_info.major > 2:
-    xrange = range
-elif sys.version_info.major == 2:
-    pass
-# end boiler plate for compatibility
-
 
 # This is a janky solution to import the modules. We will need to go back
 # and make this a proper package
@@ -74,6 +68,8 @@ for (n, neuron) in enumerate(all_neurons):
     ii = neuron.ii
     V_vec.append(data[:,ii])
 np.save('AL_data_62', V_vec)
+
+
 # This is code generated to plot this specific example. There are other plotting
 # functions within the lab_manager file.
 
