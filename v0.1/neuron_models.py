@@ -5,6 +5,7 @@ To-dos:
 1. make method/function to check dimensions consistency across DIM, ic,...etc
 2. introduce delay, related to choices for rho_gate placement
 3. too many "self"... can improve readability?
+
 """
 
 import numpy as np
@@ -71,6 +72,7 @@ class PlasticNMDASynapse:
 
     # Dimension
     DIM = 2
+    CURRENTS = 1
     def __init__(self,para=None):
         """
         Args:
@@ -104,7 +106,7 @@ class PlasticNMDASynapse:
         return [np.random.rand(), 0.]
 
 class PlasticNMDASynapseWithCa:
-    """
+    """`
     A plastic synaspe
     """
     # Nernst/reversal potentials
@@ -131,6 +133,7 @@ class PlasticNMDASynapseWithCa:
     # Dimension
     #DIM = 2
     DIM = 3
+    CURRENTS = 1
     def __init__(self,para=None):
         """
         Args:
@@ -393,6 +396,7 @@ class PlasticNMDASynapseWithCaJL:
     # Dimension
     #DIM = 2
     DIM = 3
+    CURRENTS = 1
     def __init__(self,para=None):
         """
         Args:
@@ -845,6 +849,54 @@ class Synapse_gaba_HH:
     def get_initial_condition(self):
         return [0.1]
 
+class SynapseGabaBl:
+    #inhibition
+    gGABA = 1.0
+    E_gaba = -80.0 #mV
+    alphaR = 5.0
+    betaR = 0.18
+    Tm = 1.5
+
+
+    Kp = 5.0
+    Vp = 7.0
+
+    DIM = 1
+    CURRENTS = 1
+    def __init__(self, weight = 1.0):
+        self.r = None
+        self.weight = weight
+
+    def set_integration_index(self, i):
+        self.ii = i
+        self.r = y(i)
+
+    def get_ind(self):
+        return self.ii
+
+    def fix_weight(self, w):
+        self.weight = w
+
+    def dydt(self, pre_neuron, pos_neuron):
+        Vpre = pre_neuron.v_mem
+        r = self.r
+        yield (self.alphaR*self.Tm/(1+sym_backend.exp(-(Vpre - self.Vp)/self.Kp)))*(1-r) - self.betaR*r
+
+    def get_params(self):
+        return [self.gGABA, self.E_gaba]
+
+    def get_prefix_and_rev_po(self):
+        return [[self.gGABA*self.weight*self.r,self.E_gaba]]
+
+    def i_syn_ij(self, pos_neuron):
+        v_pos = pos_neuron.v_mem ###
+        rho = self.r
+        wij = self.weight
+        return - wij*rho*(v_pos - self.E_gaba)
+
+    def get_initial_condition(self):
+        return [0.1]
+
 "Fitted Model of Projection Neurons from the Bazhenov Papers\
 Defined in pico amps"
 class PN_2:
@@ -920,8 +972,6 @@ class PN_2:
         uu = self.u
         i_inj = self.i_inj
 
-
-        ## Currently, this doesn't work as it causes a segfault
         i_syn = sum([sum([self.I_syn_modified(VV,
             synapse.get_prefix_and_rev_po()[j][0],synapse.get_prefix_and_rev_po()[j][1])
             for j in range(synapse.CURRENTS)]) for (i,synapse) in enumerate(pre_synapses)])
@@ -1257,6 +1307,11 @@ class Synapse_gaba_LN:
 
     def get_initial_condition(self):
         return [0.0]
+    def i_syn_ij(self, pos_neuron):
+        v_pos = pos_neuron.v_mem ###
+        rho = self.gGABA
+        wij = 1
+        return - wij*rho*(v_pos - pos_neuron.RE_PO_SYN)
 
 
 class Synapse_gaba_LN_with_slow:
@@ -1366,6 +1421,12 @@ class Synapse_nAch_PN_2:
         return [0.0]
     def get_prefix_and_rev_po(self):
         return [[self.gnAch*self.r,self.E_nAch]]
+
+    def i_syn_ij(self, pos_neuron):
+        v_pos = pos_neuron.v_mem ###
+        rho = self.gnAch*self.weight
+        wij = 1
+        return - wij*rho*(v_pos - pos_neuron.RE_PO_SYN)
 
 class Synapse_nAch_PN:
     #Excitation

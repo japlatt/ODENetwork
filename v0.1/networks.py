@@ -5,10 +5,10 @@ Define layers or combination of layers here.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 # might be useful for mac user, uncommnet below if needed
-# import matplotlib
-# matplotlib.use("TKAgg")
+import matplotlib
+matplotlib.use("TKAgg")
+import matplotlib.pyplot as plt
 import random
 import itertools
 import copy
@@ -121,6 +121,14 @@ def sparsely_connect_between(net, subgraph_1, subgraph_2, SynapseClass, prob):
                 # order matters when adding edges
                 net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass())
 
+def sparsely_connect_between_g(net, subgraph_1, subgraph_2, SynapseClass, prob, g):
+    pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
+    for pos_neuron in pos_neurons:
+        for pre_neuron in pre_neurons:
+            if random.random() < prob:
+                # order matters when adding edges
+                net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g))
+
 """
 stack(net1, net2):
 
@@ -229,6 +237,7 @@ def draw_colored_layered_digraph(net):
             pos[neuron] = [xs[l], ys[n]]
         nx.draw_networkx_nodes(list(layer.nodes),pos=pos,node_color=next(cycol))
     nx.draw_networkx_edges(net,pos=pos)
+    plt.show()
 
 
 """
@@ -250,9 +259,9 @@ was observed experimentally between Mushroom Body and Beta-lobe.
 Here we outline the architecture:
 
 In layer 0, there are num_rn_group groups of RNs, each group consists of
-rn_group_size RNs. Each group only responses to particular kind of odorant
-molecule, and then connect to a subset of neuron in a glomeruli in the AL.
-For now we let each RN in a group to connect a single neuron in a glomeruli,
+rn_group_size RNs. Each group only responds to a particular kind of odorant
+molecule, and then connects to a subset of neurons in a glomeruli in the AL.
+For now we let each RN in a group connect to a single neuron in a glomeruli,
 selected randomly.
 
 In layer 1, there are num_glomeruli groups of glomerulus. Each glomeruli
@@ -308,19 +317,21 @@ Not sure whether PNs are connected between each others.
 """
 def get_glomeruli(*, num_pn, num_ln,
     PNClass, LNClass, PNSynapseClass, LNSynapseClass,
-    prob_p2p=0., prob_p2l=0.5, prob_l2p=0.5, prob_l2l=0.5):
+    prob_p2p=0., prob_p2l=0.5, prob_l2p=0.5, prob_l2l=0.5,
+    gLN = 100.0, gLNPN = 400.0, gPN = -1.0, gPNLN = 600.0):
     #pn_graph = fast_gnp_random_graph(num_pn, prob_p2p, directed=True) # Erdos-Renyi
     #pns = get_single_layer(PNClass, num_pn, label="pn", graph=pn_graph)
     pns = get_single_layer(PNClass, num_pn, label="PNs")
     lns = get_single_layer(LNClass, num_ln, label="LNs")
     net = stack(pns, lns)
-    # ignoring p2p for now, cause I don't undertsand it
-    # Also depending on how glomeruli are connected, some of below
-    # could be duplicated. For now possible duplicates are commented.
-    #sparsely_connect_between(net, pns, pns, PNSynapseClass, prob_p2p)
-    sparsely_connect_between(net, pns, lns, PNSynapseClass, prob_p2l)
-    sparsely_connect_between(net, lns, pns, LNSynapseClass, prob_l2p)
-    sparsely_connect_between(net, lns, lns, LNSynapseClass, prob_l2l)
+    if gPN >= 0:
+        sparsely_connect_between_g(net, pns, pns, PNSynapseClass, prob_p2p, gPN)
+    if gPNLN >= 0:
+        sparsely_connect_between_g(net, pns, lns, PNSynapseClass, prob_p2l, gPNLN)
+    if gLNPN >= 0:
+        sparsely_connect_between_g(net, lns, pns, LNSynapseClass, prob_l2p, gLNPN)
+    if gLN >= 0:
+        sparsely_connect_between_g(net, lns, lns, LNSynapseClass, prob_l2l, gLN)
     return net
 
 """
@@ -332,7 +343,8 @@ The LNs in each glomeruli connect to PNs and LNs in other glomeruli
 probabilistically with prob_l2p and prob_l2l, respectively.
 """
 def get_antennal_lobe(*, num_glo, glo_para,
-    prob_p2p=0., prob_p2l=0.5, prob_l2p=0.5, prob_l2l=0.5):
+    prob_p2p=0., prob_p2l=0.5, prob_l2p=0.5, prob_l2l=0.5,
+    gLN = 100.0, gLNPN = 400.0, gPN = -1.0, gPNLN = 600.0):
     # first propulate glomerulus
     net = LayeredDiGraph()
     net.layers = []
@@ -350,10 +362,12 @@ def get_antennal_lobe(*, num_glo, glo_para,
             lns_1 = glo_1.layers[1]
             pns_2 = glo_2.layers[0]
             lns_2 = glo_2.layers[1]
-            sparsely_connect_between(
-                net, lns_1, pns_2, LNSynapseClass, prob_l2p)
-            sparsely_connect_between(
-                net, lns_1, lns_2, LNSynapseClass, prob_l2l)
+            if gLNPN >= 0:
+                sparsely_connect_between_g(
+                net, lns_1, pns_2, LNSynapseClass, prob_l2p, gLNPN)
+            if gLN >= 0:
+                sparsely_connect_between_g(
+                net, lns_1, lns_2, LNSynapseClass, prob_l2l, gLN)
     return net
 
 
@@ -382,30 +396,30 @@ def get_beta_lobe(*, num_bl, BLClass, BLSynapseClass, prob_b2b=0.5):
 get_olfaction_net(*, rn_para, al_para, mb_para, bl_para)
 """
 
-def get_olfaction_net(*, rn_para, al_para, mb_para, bl_para, other_para):
-    RNSynapseClass = rn_para["RNSynapseClass"]
+def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
+    # RNSynapseClass = rn_para["RNSynapseClass"]
     PNSynapseClass = al_para["glo_para"]["PNSynapseClass"]
     KCSynapseClass = mb_para["KCSynapseClass"]
-    prob_r2a = other_para["prob_r2a"]
+    # prob_r2a = other_para["prob_r2a"]
     prob_a2k = other_para["prob_a2k"]
     prob_k2b = other_para["prob_k2b"]
-    rn = get_receptor_neurons(**rn_para)
+    # rn = get_receptor_neurons(**rn_para)
     al = get_antennal_lobe(**al_para)
     mb = get_mushroom_body(**mb_para)
     bl = get_beta_lobe(**bl_para)
-    layers = [rn, al, mb, bl]
+    layers = [al, mb, bl]
     net = stack_from_list(layers)
-    for i, rn_group in enumerate(rn.layers):
-        glo = al.layers[i%len(al.layers)]
-        sparsely_connect_between(net, rn_group, glo, RNSynapseClass, prob_r2a)
+    # for i, rn_group in enumerate(rn.layers):
+    #     glo = al.layers[i%len(al.layers)]
+    #     sparsely_connect_between(net, rn_group, glo, RNSynapseClass, prob_r2a)
     kcs = mb.layers[0]
     for glo in al.layers:
         pns = glo.layers[0]
         sparsely_connect_between(net, pns, kcs, PNSynapseClass, prob_a2k)
     sparsely_connect_between(net, kcs, bl, KCSynapseClass, prob_k2b)
     # wrap around the labels
-    net.labels = ["RN", "AL", "MB", "BL"]
-    net.layers = [rn, al, mb, bl]
+    net.labels = ["AL", "MB", "BL"]
+    net.layers = [al, mb, bl]
     return net
 
 
