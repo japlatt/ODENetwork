@@ -24,6 +24,7 @@ num_layers = 2
 
 num_odors = int(input('Enter number of odours: '))
 num_per_od = int(input('Enter # different concentrations per od: '))
+adj_m = net.get_edges_data(AL, "weight")
 num_trials = int(input('Enter number of runs to be completed for each odor/concentration: '))
 
 for number in range(num_odors):
@@ -47,7 +48,7 @@ for number in range(num_odors):
 
 		    I_ext[i] = np.floor(I_ext[i])
 		    I_ext[i][np.nonzero(I_ext[i])] = Iscale*np.asarray(I_ext[i][np.nonzero(I_ext[i])])
-		neuron_inds = [np.nonzero(I_ext[j])[0].tolist() for j in range(num_layers)]
+		curr_inds = [np.nonzero(I_ext[j])[0].tolist() for j in range(num_layers)]
 		current_vals = [I_ext[j][np.nonzero(I_ext[j])] for j in range(num_layers)]
 
 		for trial in range(num_trials):
@@ -73,6 +74,10 @@ for number in range(num_odors):
 			np.save('results/AL_3090_od{0}_inj{1}_t{2}'.format(number,Iscale,trial),data[pn_inds])
 			data = None
 
+		adj_md = adj_m+np.diag(np.concatenate(I_ext))
+
+		np.savetxt('Data/AL_3090_' + str(Iscale)+ '_'+str(number)+'adj_mat.txt', adj_md,
+			fmt='%1.2f')
 #np.save('large_network.npy',sol[inds])
 
 

@@ -77,5 +77,41 @@ v = pca.components_
 Xk = pca.transform(data.T)
 #Xorg = pca.transform(np.asarray(avg_data).T)
 
+#save each odor/concatenation
+#60 bins in each concatenation
+for i in range(3):
+	for j in range(4):
+		start = i*240+j*60
+		end = start+60
+		np.savetxt('projected_AL_30-90_od'+str(i)+'_c' + str(j)+'.txt', Xk[start:end, :])
+
+# np.savetxt('projected_AL_30-90_od1.txt', Xk[:240, :])
+# np.savetxt('projected_AL_30-90_od2.txt', Xk[240:480, :])
+# np.savetxt('projected_AL_30-90_od3.txt', Xk[480:720, :])
+
+# print(np.shape(Xk))
+# print(np.shape(Xk[:240, :]))
+# print(np.shape(Xk[240:480, :]))
+
+#plot for data with 3 odour and 4 concentrations per odour
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+colors = itertools.cycle(["b", "y", "r"])
+marker = itertools.cycle(['^', 'o', 's', 'p'])
+c = next(colors)
+m = next(marker)
+for i in range(len(Xk[:,0])):
+    if i%240 == 0 and i != 0:
+        c = next(colors)
+    if i%60 == 0 and i != 0:
+        m = next(marker)
+    ax.scatter(Xk[i, 0], Xk[i, 1], Xk[i, 2], color = c, marker = m)
+plt.show()
+
+
+
+
+=======
 np.savetxt('projected_AL_30-90.txt', Xk)
 print(Xk.shape)
+>>>>>>> dfaf1d080d4ca7c68bf36f89e71cfe8edc8a9608:v0.1/pca.py
