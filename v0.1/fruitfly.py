@@ -41,7 +41,7 @@ class RandomSynapse:
 
 """
 Please refer to the write-up for more functional/architectural details.
-Schemeticaly, the insect oflaction network has a 4-layer feedforward
+Schematically, the insect oflaction network has a 4-layer feedforward
 architecture.
 """
 
