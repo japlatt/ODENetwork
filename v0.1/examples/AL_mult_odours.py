@@ -53,7 +53,7 @@ for number in range(num_odors):
 
 		for trial in range(num_trials):
 			print('Odor: {0}, Concentration {1}, Trial {2}'.format(number,j,trial))
-			ex.const_current(AL, num_layers, neuron_inds, current_vals)
+			ex.const_current(AL, num_layers, curr_inds, current_vals)
 
 			#set up the lab
 			f, initial_conditions, all_neuron_inds = lm.set_up_lab(AL)
