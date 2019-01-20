@@ -33,8 +33,11 @@ class StaticSynapse:
     """
     A static synapse.
 
-    TODO: Define an i_syn_ij current
+    TODO: Define an i_syn_ca_ij current??? How to handle?
     """
+    COND_SYN = 3.
+    RE_PO_SYN = 0.
+
     # Dimension
     DIM = 0
     def __init__(self, syn_weight=1.):
@@ -43,6 +46,11 @@ class StaticSynapse:
             syn_weight (:obj: 'float', optional): Scales synaptic weight.
         """
         self.syn_weight = syn_weight
+
+    def i_syn_ij(self, v_pos):
+        rho = self.COND_SYN
+        wij = self.syn_weight
+        return rho*wij*(v_pos - self.RE_PO_SYN)
 
     # We should not need the followings for static object:
     # def fix_integration_index(self, i):
@@ -59,6 +67,9 @@ class PlasticNMDASynapse:
 
     TODO: Define an i_syn_ij current
     """
+
+    COND_SYN = 3.
+    RE_PO_SYN = 0.
     # Nernst/reversal potentials
     HF_PO_NMDA = 20 # NMDA half potential, unit: mV
     # Transmitter shit
@@ -117,12 +128,23 @@ class PlasticNMDASynapse:
     def get_initial_condition(self):
         return [np.random.rand(), 0.]
 
+    def i_syn_ij(self, v_pos):
+        rho = self.COND_SYN*self.rho_gate
+        wij = self.syn_weight
+        return rho*wij*(v_pos - self.RE_PO_SYN)
+
 class PlasticNMDASynapseWithCa:
     """
     A plastic synaspe
 
-    TODO: Define i_syn_ij function
+    TODO: Define i_syn_ij function and i_syn_ca_ij
     """
+
+    COND_SYN = 3.
+    COND_CA_SYN = 1.5
+
+    RE_PO_SYN = 0.
+    RE_PO_CA = 140.
     # Nernst/reversal potentials
     HF_PO_NMDA = 20 # NMDA half potential, unit: mV
     # Transmitter shit
@@ -176,7 +198,7 @@ class PlasticNMDASynapseWithCa:
         v_pos = pos_neuron.v_mem ###
         a_pos = pos_neuron.a_gate ###
         b_pos = pos_neuron.b_gate ###
-        i_syn_ca = pos_neuron.i_syn_ca_ij(v_pos, self.rho_gate, self.syn_weight)
+        i_syn_ca = self.i_syn_ca_ij(v_pos) # negated in post synaptic cell to state how much goes into it, if we leave this as positive, it will describe how much is leaving the synapse
         #ca_pos = pos_neuron.calcium
         rho = self.rho_gate # some choice has to be made here
         #rho = pre_neuron.rho_gate
@@ -188,9 +210,20 @@ class PlasticNMDASynapseWithCa:
             - self.GAMMA_D*wij*heaviside(self.ca - self.THETA_D) )
         yield self.ALPHA_NMDA*t_conc*(1-rho) - self.BETA_NMDA*rho
         yield self.AVO_CONST*(pos_neuron.i_ca(v_pos, a_pos, b_pos) + i_syn_ca) + (self.CA_EQM-self.ca)/self.TAU_CA ###
-
+        #why does this include intracellular changes in calcium for post-synaptic cell, is this suppsed to describe caclium in synapse or calcium in post-synaptic neuron
     def get_initial_condition(self):
         return [0.5+ 0.1*np.random.rand(), 0., 0.] ###
+
+    def i_syn_ij(self, v_pos):
+        rho = self.COND_SYN*self.rho_gate
+        wij = self.syn_weight
+        return rho*wij*(v_pos - self.RE_PO_SYN)
+
+    def i_syn_ca_ij(self, v_pos):
+        #current set such that weight = 0.5??
+        rho = self.rho_gate*self.COND_CA_SYN
+        return rho*0.5*(v_pos - self.RE_PO_CA)
+
 
 
 class HHNeuronWithCa:
@@ -216,7 +249,7 @@ class HHNeuronWithCa:
     RE_PO_NA = 50 # Na Nernst potential, unit: mV
     RE_PO_K = -95 # K Nernst potential, unit: mV
     RE_PO_CA = 140 # K Nernst potential, unit: mV
-    RE_PO_SYN = 0.
+
 
     # Half potentials of gating variables
     HF_PO_M = -40 # m half potential, unit: mV
@@ -310,6 +343,8 @@ class HHNeuronWithCa:
                 pre-synaptically to this neuron.
             pre_neurons: A list of all neuron objects connected
                 pre-synaptically to this neuron.
+
+        TODO: Figure out calcium dynamics stuff
         """
         # define how neurons are coupled here
         v = self.v_mem
@@ -330,11 +365,12 @@ class HHNeuronWithCa:
         #     self.i_syn_ca_ij(v, pre_neurons[i].rho_gate, synapse.syn_weight)
         #     for (i,synapse) in enumerate(pre_synapses) )
         i_syn = sum(
-            self.i_syn_ij(v, synapse.rho_gate, synapse.syn_weight)
+            synapse.i_syn_ij(v)
             for (i,synapse) in enumerate(pre_synapses) )
         i_syn_ca = sum(
-            self.i_syn_ca_ij(v, synapse.rho_gate, synapse.syn_weight)
+            synapse.i_syn_ca_ij(v, synapse.rho_gate, synapse.syn_weight)
             for (i,synapse) in enumerate(pre_synapses) )
+        # ignores synapse calcium current??
         i_base = (
             i_syn + self.i_leak(v) + self.i_na(v,m,h) + self.i_k(v,n)
             + self.i_ca(v,a,b))
@@ -358,8 +394,6 @@ class HHNeuronWithCa:
         yield self.AVO_CONST*(
             self.i_ca(v,m,h) + i_syn_ca) + (self.CA_EQM-ca)/self.TAU_CA
         #yield self.ALPHA_NMDA*t_conc*(1-rho) - self.BETA_NMDA*rho
-
-    def dm_dt()
 
     def get_initial_condition(self):
         return [-73.,0.2,0.8,0.2,0.2,0.8,0.]
@@ -402,6 +436,9 @@ class PlasticNMDASynapseWithCaJL:
     fixed the ratio GAMMA_P/(GAMMA_D + GAMMA_P). We relaxed that by a
     modification to the eom of synaptic weight.
     """
+    COND_SYN = .5 # have to be fiine tuned according to each network
+    #COND_CA_SYN = 1.5
+
     # Nernst/reversal potentials
     HF_PO_NMDA = 20 # NMDA half potential, unit: mV
     RE_PO_CA = 140 # K Nernst potential, unit: mV treating the same as neuron
@@ -508,7 +545,8 @@ class PlasticNMDASynapseWithCaJL:
         Returns:
             A value for the total synaptic current, used by the post-synaptic cell
         """
-        rho = self.rho_gate
+        # No conductance value??
+        rho = self.rho_gate*self.COND_SYN
         wij = self.syn_weight()
         return wij*rho*(v_pos - pos_neuron.RE_PO_SYN)
 
@@ -529,6 +567,10 @@ class HHNeuronWithCaJL:
     Also the original motivation was to treat all gating variables on equal
     footing so that their taus and x_eqm have the same functional form. It
     probably does not matter much...?
+
+    TODO: Figure out what the heck this neuron does... It seems like calcium is
+    all commented out. There is something with the synapse where there is some
+    form of reduced weight, but it is very unclear.
     """
     # Parameters:
     # Capacitance
@@ -648,17 +690,15 @@ class HHNeuronWithCaJL:
         # i_syn_ca = sum(
         #     self.i_syn_ca_ij(v, pre_neurons[i].rho_gate, synapse.syn_weight)
         #     for (i,synapse) in enumerate(pre_synapses) )
-        i_syn = self.COND_SYN*sum(synapse.i_syn_ij(self)
+        i_syn = sum(synapse.i_syn_ij(self)
             for (i,synapse) in enumerate(pre_synapses))
         # i_syn_ca = sum(
         #     self.i_syn_ca_ij(v, synapse.rho_gate, synapse.syn_weight)
         #     for (i,synapse) in enumerate(pre_synapses) )
         i_base = i_syn + self.i_leak(v) + self.i_na(v,m,h) + self.i_k(v,n)
             #+ self.i_ca(v,a,b) )
-        if i_inj is None:
-            yield 1/self.CAP_MEM*i_base
-        else:
-            yield 1/self.CAP_MEM*(i_inj+i_base)
+
+        yield -1/self.CAP_MEM*(i_base - i_inj)
         yield 1/self.tau_x(
             v, self.HF_PO_M, self.V_REW_M, self.TAU_0_M, self.TAU_1_M
             )*(self.x_eqm(v, self.HF_PO_M, self.V_REW_M) - m)
@@ -695,13 +735,13 @@ class HHNeuronWithCaJL:
     #     return 1./(ALPHA_NMDA*T + BETA_NMDA)
     #@staticmethod
     def i_leak(self, Vm):
-        return -self.COND_LEAK*(Vm - self.RE_PO_LEAK)
+        return self.COND_LEAK*(Vm - self.RE_PO_LEAK)
 
     def i_na(self, Vm, m, h):
-        return -self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
+        return self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
 
     def i_k(self, Vm, n):
-        return -self.COND_K*n**4*(Vm - self.RE_PO_K)
+        return self.COND_K*n**4*(Vm - self.RE_PO_K)
 
     # def i_ca(self, Vm, a, b):
     #     return -self.COND_CA*a**2*b*(Vm - self.RE_PO_CA)
@@ -709,7 +749,7 @@ class HHNeuronWithCaJL:
         v = self.v_mem
         a = self.a_gate
         b = self.b_gate
-        return -self.COND_CA*a**2*b*(v-self.RE_PO_CA)
+        return self.COND_CA*a**2*b*(v-self.RE_PO_CA)
 
     # def i_syn_ij(self, Vm_po, rho_ij, W_ij):
     #     return - self.COND_SYN*W_ij*rho_ij*(Vm_po - self.RE_PO_SYN)
