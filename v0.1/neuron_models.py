@@ -5,6 +5,12 @@ To-dos:
 1. make method/function to check dimensions consistency across DIM, ic,...etc
 2. introduce delay, related to choices for rho_gate placement
 3. too many "self"... can improve readability?
+4. Get Antennal Lobe neurons (dimension pA) on the same scale as HH neurons
+    (dim uA/cm^2). If we assume that the surface area of a neuron is ~ 100 um^2
+    (roughly 3 um radius), then we don't have to do any conversion. For example,
+    if we do g/C for the local neuron leak current, we have 21 nS/142 pF = 0.15.
+    If we look at the same for HH neuron, it's 0.3 mS/1 uF = 0.3. Same order of
+    magnitude.
 """
 
 import numpy as np
@@ -33,7 +39,7 @@ class StaticSynapse:
     """
     A static synapse.
 
-    TODO: Define an i_syn_ca_ij current??? How to handle?
+    TODO: Currently doesn't function because there's nothing to integrate.
     """
     COND_SYN = 3.
     RE_PO_SYN = 0.
@@ -53,19 +59,19 @@ class StaticSynapse:
         return rho*wij*(v_pos - self.RE_PO_SYN)
 
     # We should not need the followings for static object:
-    # def fix_integration_index(self, i):
-    #     pass
-    # def dydt(self, pre_neuron, pos_neuron):
-    #     pass
-    # def get_initial_condition():
-    #     pass
+    def fix_integration_index(self, i):
+        pass
+    def dydt(self, pre_neuron, pos_neuron):
+        pass
+    def get_initial_condition():
+        pass
     #
 
 class PlasticNMDASynapse:
     """
-    A plastic synaspe
+    A plastic synaspe.
 
-    TODO: Define an i_syn_ij current
+    This synapse only works when the post-synaptic cell has calcium.
     """
 
     COND_SYN = 3.
@@ -114,7 +120,7 @@ class PlasticNMDASynapse:
 
     def dydt(self, pre_neuron, pos_neuron):
         v_pre = pre_neuron.v_mem
-        ca_pos = pos_neuron.calcium
+        ca_pos = pos_neuron.ca
         rho = self.rho_gate # some choice has to be made here
         #rho = pre_neuron.rho_gate
         wij = self.syn_weight
@@ -209,8 +215,8 @@ class PlasticNMDASynapseWithCa:
             + self.GAMMA_P*(1-wij)*heaviside(self.ca - self.THETA_P)
             - self.GAMMA_D*wij*heaviside(self.ca - self.THETA_D) )
         yield self.ALPHA_NMDA*t_conc*(1-rho) - self.BETA_NMDA*rho
-        yield self.AVO_CONST*(pos_neuron.i_ca(v_pos, a_pos, b_pos) + i_syn_ca) + (self.CA_EQM-self.ca)/self.TAU_CA ###
-        #why does this include intracellular changes in calcium for post-synaptic cell, is this suppsed to describe caclium in synapse or calcium in post-synaptic neuron
+        yield self.AVO_CONST*(-pos_neuron.i_ca(v_pos, a_pos, b_pos) - i_syn_ca) + (self.CA_EQM-self.ca)/self.TAU_CA
+        #This is just the calcium concentration of the post-synaptic cell
     def get_initial_condition(self):
         return [0.5+ 0.1*np.random.rand(), 0., 0.] ###
 
@@ -392,7 +398,7 @@ class HHNeuronWithCa:
             v, self.HF_PO_B, self.V_REW_B, self.TAU_0_B, self.TAU_1_B
             )*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
         yield self.AVO_CONST*(
-            self.i_ca(v,m,h) + i_syn_ca) + (self.CA_EQM-ca)/self.TAU_CA
+            -self.i_ca(v,m,h) - i_syn_ca) + (self.CA_EQM-ca)/self.TAU_CA
         #yield self.ALPHA_NMDA*t_conc*(1-rho) - self.BETA_NMDA*rho
 
     def get_initial_condition(self):
@@ -435,9 +441,13 @@ class PlasticNMDASynapseWithCaJL:
     The model used by them has a limited dynamical range of synaptic weight
     fixed the ratio GAMMA_P/(GAMMA_D + GAMMA_P). We relaxed that by a
     modification to the eom of synaptic weight.
+
+    This current only works when the CaJL neuron is the post-synaptic neuron!!!
     """
     COND_SYN = .5 # have to be fiine tuned according to each network
     #COND_CA_SYN = 1.5
+
+    RE_PO_SYN = 0.
 
     # Nernst/reversal potentials
     HF_PO_NMDA = 20 # NMDA half potential, unit: mV
@@ -514,8 +524,8 @@ class PlasticNMDASynapseWithCaJL:
         rho = self.rho_gate
         ca = self.ca
         # calcium currents
-        i_syn_ca = self.AVO_CONST_SYN*self.i_syn_ca_ij(pos_neuron)
-        i_pos_ca = self.AVO_CONST_POS*pos_neuron.i_ca()
+        i_syn_ca = self.AVO_CONST_SYN*self.i_syn_ca_ij(v_pos) #leaving synapse
+        i_pos_ca = self.AVO_CONST_POS*pos_neuron.i_ca() # why do I care about this??
         i_leak_ca = (self.CA_EQM-self.ca)/self.TAU_CA
         # transmitter (only NMDA here)
         t_conc = sigmoid((v_pre-self.HF_PO_NMDA)/self.V_REW_NMDA)
@@ -524,18 +534,18 @@ class PlasticNMDASynapseWithCaJL:
             heaviside(ca- self.THETA_P)
             -self.GAMMA_D*heaviside(ca - self.THETA_D))
         yield self.ALPHA_NMDA*t_conc*(1-rho) - rho/self.TAU_RHO
+        #Is this supposed to include post-synaptic cell current?????
         yield i_syn_ca + i_pos_ca + i_leak_ca
         # yield self.AVO_CONST*( pos_neuron.i_ca(-70., a_pos, b_pos)
         #     + i_syn_ca) + (self.CA_EQM-self.ca)/self.TAU_CA ###
     # helper functions
     # The synaptic current at this particular dendrite/synapse
     # It should depends only on the pos-synaptic voltage
-    def i_syn_ca_ij(self, pos_neuron):
-        v_pos = pos_neuron.v_mem ###
+    def i_syn_ca_ij(self, v_pos):
         rho = self.rho_gate
         wij = self.syn_weight()
         #return - self.COND_CA_SYN*rho_ij*(Vm_po - self.RE_PO_CA)
-        return wij*rho*(v_pos - pos_neuron.RE_PO_CA)
+        return wij*rho*(v_pos - self.RE_PO_CA)
 
     def i_syn_ij(self, v_pos):
         """
@@ -548,7 +558,7 @@ class PlasticNMDASynapseWithCaJL:
         # No conductance value??
         rho = self.rho_gate*self.COND_SYN
         wij = self.syn_weight()
-        return wij*rho*(v_pos - pos_neuron.RE_PO_SYN)
+        return wij*rho*(v_pos - self.RE_PO_SYN)
 
     def syn_weight(self):
         return sigmoid(self.reduced_weight)
@@ -690,7 +700,7 @@ class HHNeuronWithCaJL:
         # i_syn_ca = sum(
         #     self.i_syn_ca_ij(v, pre_neurons[i].rho_gate, synapse.syn_weight)
         #     for (i,synapse) in enumerate(pre_synapses) )
-        i_syn = sum(synapse.i_syn_ij(self)
+        i_syn = sum(synapse.i_syn_ij(v)
             for (i,synapse) in enumerate(pre_synapses))
         # i_syn_ca = sum(
         #     self.i_syn_ca_ij(v, synapse.rho_gate, synapse.syn_weight)
@@ -885,7 +895,6 @@ class HHNeuron:
 
 class Synapse_glu_HH:
     #Excitation
-    COND_GLU = 0.4
     REV_PO_CL = -38.0  #mV
     ALPHA_R = 2.4
     BETA_R = 0.56
@@ -896,9 +905,10 @@ class Synapse_glu_HH:
     HF_PO_R = 7.0
 
     DIM = 1
-    def __init__(self, para = None):
+    def __init__(self, g=0.4,para = None):
         self.r_gate = None
         self.syn_weight = 1.0
+        self.cond_glu = g
 
     def set_integration_index(self, i):
         """
@@ -927,7 +937,7 @@ class Synapse_glu_HH:
         r = self.r_gate
         yield (self.ALPHA_R*self.MAX_CONC/(1+sym_backend.exp(-(Vpre - self.HF_PO_R)/self.V_REW_R)))*(1-r) - self.BETA_R*r
     def get_params(self):
-        return [self.COND_GLU, self.REV_PO_CL]
+        return [self.cond_glu, self.REV_PO_CL]
 
     def get_ind(self):
         return self.ii
@@ -943,7 +953,7 @@ class Synapse_glu_HH:
         Returns:
             A value for the total synaptic current, used by the post-synaptic cell
         """
-        rho = self.COND_GLU*self.r_gate
+        rho = self.cond_glu*self.r_gate
         wij = self.syn_weight
         return rho*wij*(v_pos - self.REV_PO_CL)
 
@@ -1465,7 +1475,7 @@ class LN:
 
 class Synapse_gaba_LN:
     #inhibition
-    REV_PO_GABA = -70.0
+    RE_PO_GABA = -70.0
     ALPHA_R = 10.0
     BETA_R = 0.16
     MAX_CONC = 1.0
@@ -1526,7 +1536,7 @@ class Synapse_gaba_LN:
         """
         rho = self.COND_GABA*self.r_gate
         wij = self.syn_weight
-        return wij*rho*(v_pos - pos_neuron.RE_PO_GABA)
+        return wij*rho*(v_pos - self.RE_PO_GABA)
 
 """
 This is synapse is an inhibitory synapse based on the 2nd of Bazhenov's 2001 papers.
@@ -1646,10 +1656,10 @@ class Synapse_nAch_PN_2:
     Vp = 0.0 # -20 for gaba
 
     DIM = 1
-    def __init__(self, gnAch = 300.0):
+    def __init__(self, g = 300.0):
         self.r_gate = None
         self.syn_weight = 1.0
-        self.COND_NACH = gnAch
+        self.COND_NACH = g
 
 
     def set_integration_index(self, i):
@@ -1727,7 +1737,6 @@ class Synapse_nAch_PN:
     Vp = -20.0
 
     DIM = 1
-    CURRENTS = 1
     def __init__(self, gnAch = 300.0):
         self.r_gate = None
         self.syn_weight = 1.0

@@ -103,6 +103,13 @@ def fully_connect_between(net, subgraph_1, subgraph_2, SynapseClass):
             # order matters when adding edges
             net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass())
 
+def fully_connect_between_g(net, subgraph_1, subgraph_2, SynapseClass, g):
+    pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
+    for pos_neuron in pos_neurons:
+        for pre_neuron in pre_neurons:
+            # order matters when adding edges
+            net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g))
+
 """
 sparsely_connect_between(net, subgraph_1, subgraph_2, SynapseClass):
 
@@ -374,18 +381,22 @@ def get_antennal_lobe(*, num_glo, glo_para,
 """
 get_mushroom_body(num_kc,
     KCClass, GGNClass, KCSynapseClass, GGNSynapseClass)
+
+    TODO: Add keyword conductance arguments
 """
 def get_mushroom_body(*, num_kc,
-    KCClass, GGNClass, KCSynapseClass, GGNSynapseClass):
+    KCClass, GGNClass, KCSynapseClass, GGNSynapseClass, gGNNKC):
     kcs = get_single_layer(KCClass, num_kc, label="KCs")
     ggn = get_single_layer(GGNClass, 1, label="GGN")
     net = stack(kcs, ggn)
     fully_connect_between(net, kcs, ggn, KCSynapseClass)
-    fully_connect_between(net, ggn, kcs, GGNSynapseClass)
+    fully_connect_between_g(net, ggn, kcs, GGNSynapseClass, gGNNKC)
     return net
 
 """
 get_beta_lobe(num_bl, BLClass, BLSynapseClass, prob_b2b)
+
+TODO: Add keyword conductance arguments
 """
 def get_beta_lobe(*, num_bl, BLClass, BLSynapseClass, prob_b2b=0.5):
     net = get_single_layer(BLClass, num_bl, label="BLs")
@@ -394,6 +405,8 @@ def get_beta_lobe(*, num_bl, BLClass, BLSynapseClass, prob_b2b=0.5):
 
 """
 get_olfaction_net(*, rn_para, al_para, mb_para, bl_para)
+
+TODO: Edit to allow different conductances. Use sparsely_connect_between_g.
 """
 
 def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
@@ -403,6 +416,11 @@ def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
     # prob_r2a = other_para["prob_r2a"]
     prob_a2k = other_para["prob_a2k"]
     prob_k2b = other_para["prob_k2b"]
+    # Nuclei interconnecting synapse classes
+    ALtoMBSynapseClass = other_para["al_to_mb"]
+    MBtoBLSynapseClass = other_para["mb_to_bl"]
+    gALtoMB = other_para["gALMB"]
+    gKCtoGNN = other_para["gKCGNN"]
     # rn = get_receptor_neurons(**rn_para)
     al = get_antennal_lobe(**al_para)
     mb = get_mushroom_body(**mb_para)
@@ -415,8 +433,8 @@ def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
     kcs = mb.layers[0]
     for glo in al.layers:
         pns = glo.layers[0]
-        sparsely_connect_between(net, pns, kcs, PNSynapseClass, prob_a2k)
-    sparsely_connect_between(net, kcs, bl, KCSynapseClass, prob_k2b)
+        sparsely_connect_between_g(net, pns, kcs, ALtoMBSynapseClass, prob_a2k,gALtoMB)
+    sparsely_connect_between_g(net, kcs, bl, MBtoBLSynapseClass, prob_k2b,gKCtoGNN)
     # wrap around the labels
     net.labels = ["AL", "MB", "BL"]
     net.layers = [al, mb, bl]
@@ -432,6 +450,16 @@ Mostly following Bazhenov 2001
 """
 
 def connect_layer(layer, connections, prob, g):
+    """
+    Connects all nodes within a layer, two directional.
+
+    Args:
+        layer: A list of nodes
+        connections:
+        prob (float): probability of connections
+        g (float): Conductance value of the synapse
+
+    """
     for n in layer:
         for j in layer:
             if n != j and random.random() < prob:

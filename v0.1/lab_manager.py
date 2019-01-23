@@ -4,6 +4,8 @@ lab_manager.py
 It does what a lab manager should be doing. i.e
 1. set_up_lab()
 2. run_lab()
+
+TODO: Create a raster plot function.
 """
 
 import sys
