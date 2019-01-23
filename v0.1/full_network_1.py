@@ -37,7 +37,7 @@ bl_para = dict(num_bl=10, #flies: 34
 # net.draw_colored_layered_digraph(bl)
 
 
-other_para = dict(prob_a2k=0.5, prob_k2b=0.5)
+other_para = dict(prob_a2k=0.33, prob_k2b=0.5)
 full = net.get_olfaction_net(al_para=al_para,
     mb_para=mb_para, bl_para=bl_para, other_para=other_para)
 
