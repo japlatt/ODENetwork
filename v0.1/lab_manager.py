@@ -4,13 +4,25 @@ lab_manager.py
 It does what a lab manager should be doing. i.e
 1. set_up_lab()
 2. run_lab()
+
+TODO: Create a raster plot function.
 """
+
+import sys
+import pandas as pd
 import numpy as np
+import random
+# might be useful for mac user, uncommnet below if needed
+import matplotlib
+matplotlib.use("TKAgg")
+
+import matplotlib.pyplot as plt
+
 from jitcode import jitcode, y, t # this "y" will now allow symbolic tracking
+from jitcode import integrator_tools
 import networks #; reload(networks)
 import electrodes#; reload(electrodes)
 import neuron_models as nm
-import matplotlib.pyplot as plt
 
 """
 set_up_lab(net):
@@ -19,10 +31,12 @@ Prepare all the ODEs and impose initial coonditions.
 """
 def set_up_lab(net):
     neurons = net.nodes()
+    neuron_inds = []
     # step 3a: fix the integration indices sequencially
     ii = 0 # integration index
     for (n, pos_neuron) in enumerate(neurons):
         pos_neuron.set_neuron_index(n) # maybe it will be usefull?
+        neuron_inds.append(ii)
         if pos_neuron.DIM: # same as if pos_neuron.DIM > 0
             pos_neuron.set_integration_index(ii)
             ii += pos_neuron.DIM
@@ -63,21 +77,39 @@ def set_up_lab(net):
             if synapse.DIM:
                 initial_conditions += synapse.get_initial_condition()
     initial_conditions = np.array(initial_conditions)
-    return f, initial_conditions
+    return f, initial_conditions, neuron_inds
 
 """
 run_lab(f, initial_conditions, time_sampled_range, integrator='dopri5'):
 
 Run the lab.
 """
-def run_lab(f, initial_conditions, time_sampled_range, integrator='dopri5'):
+def run_lab(f, initial_conditions, time_sampled_range, integrator='dopri5',
+    compile=False):
     dim_total = len(initial_conditions)
     ODE = jitcode(f, n=dim_total)
-    ODE.generate_f_C(simplify=False, do_cse=False)#, chunk_size=150)
+    if compile:
+        ODE.generate_f_C(simplify=False, do_cse=False)#, chunk_size=150)
+    else:
+        ODE.generate_lambdas()
     ODE.set_integrator(integrator)# ,nsteps=10000000)
     ODE.set_initial_value(initial_conditions, 0.0)
-    data = np.vstack(ODE.integrate(T) for T in time_sampled_range)
+    data = np.zeros((len(time_sampled_range), dim_total)) # will set it to np.empty
+    for (i,T) in enumerate(time_sampled_range):
+        try:
+            data[i,:] = ODE.integrate(T)
+        except integrator_tools.UnsuccessfulIntegration:
+            print("gotcha")
+            return data
     return data
+
+
+"""
+Reset all the input currents to be zero.
+"""
+def reset_lab(net):
+    for neuron in net.nodes:
+        neuron.i_inj = 0
 
 """
 sample_plot(data, net):
@@ -197,22 +229,106 @@ def show_all_neuron_in_layer(time_sampled_range, data, net, layer_idx):
         # axes[1].legend()
         axes[-1].set_xlabel("time [ms]")
         plt.suptitle("Neuron {} in layer {}".format(pre_neuron.ni, layer_idx))
+    plt.show()
 
 def show_all_synaspe_onto_layer(time_sampled_range, data, net, layer_idx):
-        pos_neurons = net.layers[layer_idx].nodes()
-        for pos_neuron in pos_neurons:
-            pre_neurons = list(net.predecessors(pos_neuron))
-            for pre_neuron in pre_neurons:
-                synapse = net[pre_neuron][pos_neuron]["synapse"]
-                THETA_D = synapse.THETA_D
-                THETA_P = synapse.THETA_P
-                ii = synapse.ii
-                fig, axes = plt.subplots(2,1,sharex=True)
-                syn_weight = data[:,ii]
-                ca = data[:,ii+2]
-                axes[0].plot(time_sampled_range, syn_weight, label="synaptic weight")
-                axes[1].plot(time_sampled_range, ca, label="Ca")
-                axes[1].legend()
-                axes[1].axhline(THETA_D, color="orange", label="theta_d")
-                axes[1].axhline(THETA_P, color="green", label="theta_p")
-                plt.suptitle("w_{}{}".format(pre_neuron.ni, pos_neuron.ni))
+    def sigmoid(x):
+        return 1./(1.+ np.exp(-x))
+    pos_neurons = net.layers[layer_idx].nodes()
+    for pos_neuron in pos_neurons:
+        pre_neurons = list(net.predecessors(pos_neuron))
+        for pre_neuron in pre_neurons:
+            synapse = net[pre_neuron][pos_neuron]["synapse"]
+            THETA_D = synapse.THETA_D
+            THETA_P = synapse.THETA_P
+            ii = synapse.ii
+            fig, axes = plt.subplots(3,1,sharex=True)
+            red_syn_weight = data[:,ii]
+            ca = data[:,ii+2]
+            axes[0].plot(time_sampled_range, red_syn_weight, label="reduced synaptic weight")
+            axes[0].legend()
+            axes[1].plot(time_sampled_range, sigmoid(red_syn_weight), label="synaptic weight")
+            axes[1].legend()
+            axes[2].plot(time_sampled_range, ca, label="Ca")
+            axes[2].axhline(THETA_D, color="orange", label="theta_d")
+            axes[2].axhline(THETA_P, color="green", label="theta_p")
+            axes[2].legend()
+            plt.suptitle("w_{}{}".format(pre_neuron.ni, pos_neuron.ni))
+            plt.show()
+
+
+"""
+Helper function to smooth data using exponential weighted moving weighted moving average
+"""
+def ewma_pd(x,y):
+    ewma = pd.Series.ewm
+    df = pd.Series(y)
+    return ewma(df,span=100).mean()
+
+"""
+Plot the local field potential for AL.py
+
+Args:
+    time_sampled_range:
+        A time array to be used for plotting
+    data:
+        The output of integration.
+    net:
+        The network structure
+    layer_pn:
+        The layer that you want to do the averaging over
+    smooth (optional) default=False:
+        An option to smooth the local field potential. Useful to see qualitative
+        properties in small networks.
+"""
+def plot_LFP(time_sampled_range, data, net, layer_pn = 1, smooth=False):
+    t = time_sampled_range
+    fig = plt.figure(figsize = (8,5))
+    plt.title('Local Field Potential')
+    plt.ylabel('LFP (mV)')
+    plt.xlabel('time (ms)')
+    inds = np.array([n.ii for n in net.layers[layer_pn].nodes()])
+    sol = np.transpose(data)
+    lfp = np.mean(sol[inds],axis=0)
+    if smooth:
+        lfp = ewma_pd(t,lfp)
+
+    plt.plot(t, lfp,linewidth=2)
+    plt.show()
+
+"""
+This function randomly plots a specified number of neurons in a layer.
+
+Args:
+    time_sampled_range:
+        A time array to be used for plotting
+    data:
+        The output of integration.
+    net:
+        The network structure
+    layder_idx:
+        The layer that you want to display neurons from
+    num_neurons (optional) default=1:
+        The number of neurons you want to display from the given layer
+"""
+def show_random_neuron_in_layer(time_sampled_range, data, net, layer_idx, num_neurons=1):
+    THETA_D = nm.PlasticNMDASynapse.THETA_D
+    THETA_P = nm.PlasticNMDASynapse.THETA_P
+
+    pre_neurons = net.layers[layer_idx].nodes()
+    display_neurons = random.sample(pre_neurons,num_neurons)
+    fig, axes = plt.subplots(2,1,sharex=True)
+    for (n, neuron) in enumerate(display_neurons):
+        ii = neuron.ii
+        v_m = data[:,ii]
+        i_inj = electrodes.sym2num(t, neuron.i_inj)
+        i_inj = i_inj(time_sampled_range)
+        axes[1].plot(time_sampled_range, i_inj, label=r"$I_{inj}$ Neuron %d"%neuron.ni)
+        axes[1].set_ylabel("I [pA]")
+        axes[1].legend()
+        axes[0].plot(time_sampled_range, v_m, label="Neuron %d"%neuron.ni)
+        axes[0].set_ylabel(r"$V_m$ [mV]")
+        axes[0].legend()
+        axes[-1].set_xlabel("time [ms]")
+        plt.suptitle("Random Neuron in layer {}".format(layer_idx))
+    plt.show()

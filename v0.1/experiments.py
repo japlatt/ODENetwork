@@ -5,23 +5,44 @@ A collection of various experiments that you can do without killing an animal.
 Feel free to put your experiment design here!
 
 """
-import electrodes
-from jitcode import t # symbolic time varibale, useful for defining currents
 import numpy as np
 import math
+import scipy as sp
+import pickle
+import os.path
+import time
+from struct import unpack
+
+import electrodes
+from jitcode import t # symbolic time varibale, useful for defining currents
+
+
+
 
 """
 a simple experiment playing with calcium-based STDP in a 2-layer FC network
 """
-def delay_pulses_on_layer_0_and_1(net, dts, i_max=50.):
+
+def pulse_on_layer(net, layer_idx, t0=50., i_max=50.):
+    w = 1. #ms
+    for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
+        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0,w) # the jitcode t
+
+def pulse_train_on_layer(net, layer_idx, t0s, i_max=50.):
+    w = 1. #ms
+    i_inj = i_max*sum(electrodes.unit_pulse(t,t0,w) for t0 in t0s)
+    for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
+        neuron.i_inj = i_inj # the jitcode t
+
+def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max=50.):
     #i_max = 50. #5. # (some unit)
-    t0 = 50. # ms
+    # t0=50. # ms
     #dts = 10.
     w = 1. #ms
     for (i,neuron) in enumerate(net.layers[0].nodes()):
-        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0-dts[i],w) # the jitcode t
+        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[0],w) # the jitcode t
     for neuron in net.layers[1].nodes():
-        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0,w)
+        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[1],w)
 
 def constant_current_on_top_layer(net, i_max=50.):
     #i_max = 50. #5. # (some unit)
@@ -67,6 +88,9 @@ def poisson_train(rates, time_total=100.):
         trains.append(train)
     return trains
 
+"""
+Helper fuction to feed_gaussian_rate_poisson_spikes()
+"""
 def get_poisson_spike_train(rates, t0=0., time_total=100., i_max=50., w=1.):
     #w = 1. #pules width ms
     i_injs = []
@@ -88,6 +112,16 @@ def get_poisson_spike_train(rates, t0=0., time_total=100., i_max=50., w=1.):
 #     i_inj = electrodes.sym2num(t, i_inj)
 #     i_inj = i_inj(time_sampled_range)
 
+"""
+Adds constant current to specified neurons
+"""
+def const_current(net, num_layers, neuron_inds, current_vals):
+    for l in range(num_layers):
+        layer = net.layers[l].nodes()
+        layer_list = list(layer)
+        for i in range(len(neuron_inds[l])):
+            layer_list[neuron_inds[l][i]].i_inj = current_vals[l][i]
+
 def feed_gaussian_rate_poisson_spikes(
     net, base_rate, i_max=50., num_sniffs=10, time_per_sniff=100.):
     #i_max = 50. #5. # (some unit)
@@ -102,9 +136,90 @@ def feed_gaussian_rate_poisson_spikes(
     for i in range(num_sniffs):
         c = classes[i]
         rates = base_rate*draw_from_gaussian_clusters(c)[0]
-        i_injs, _ = get_poisson_spike_train(rates, t0=t0, time_total=time_per_sniff)
+        i_injs, _ = get_poisson_spike_train(rates, t0=t0, time_total=time_per_sniff,i_max=i_max)
         t0 += time_per_sniff
         if len(i_injs) != len(net.layers[0].nodes()):
             print("Input dimension does not match!")
         for (n, neuron) in enumerate(net.layers[0].nodes()):
             neuron.i_inj += i_injs[n]
+
+
+
+#--------------------------------------------------------------------
+#Inputs for MNIST dataset
+
+
+def get_labeled_data(picklename, MNIST_data_path, bTrain = True):
+    """Read input-vector (image) and target class (label, 0-9) and return
+       it as list of tuples.
+    """
+    if os.path.isfile('%s.pickle' % picklename):
+        data = pickle.load(open('%s.pickle' % picklename, 'rb'), encoding='utf-8')
+    else:
+        # Open the images with gzip in read binary mode
+        if bTrain:
+            images = open(MNIST_data_path + 'train-images.idx3-ubyte','rb')
+            labels = open(MNIST_data_path + 'train-labels.idx1-ubyte','rb')
+        else:
+            images = open(MNIST_data_path + 't10k-images.idx3-ubyte','rb')
+            labels = open(MNIST_data_path + 't10k-labels.idx1-ubyte','rb')
+        # Get metadata for images
+        images.read(4)  # skip the magic_number
+        number_of_images = unpack('>I', images.read(4))[0]
+        rows = unpack('>I', images.read(4))[0]
+        cols = unpack('>I', images.read(4))[0]
+        # Get metadata for labels
+        labels.read(4)  # skip the magic_number
+        N = unpack('>I', labels.read(4))[0]
+    
+        if number_of_images != N:
+            raise Exception('number of labels did not match the number of images')
+        # Get the data
+        x = np.zeros((N, rows, cols), dtype=np.uint8)  # Initialize numpy array
+        y = np.zeros((N, 1), dtype=np.uint8)  # Initialize numpy array
+        for i in range(N):
+            if i % 1000 == 0:
+                print("i: %i" % i)
+            x[i] = [[unpack('>B', images.read(1))[0] for unused_col in range(cols)]  for unused_row in range(rows) ]
+            y[i] = unpack('>B', labels.read(1))[0]
+            
+        data = {'x': x, 'y': y, 'rows': rows, 'cols': cols}
+        pickle.dump(data, open("%s.pickle" % picklename, "wb"), -1)
+    return data
+
+# '''
+# produce a binary spike train
+# fr = frquency: Hz
+# time_tot = total time: seconds
+# dt: seconds
+# nTrains =  number of spike trains
+# '''
+# def poisson(fr, time_tot, dt = 1e-3, nTrains = 1):
+#     nBins = int(np.floor(time_tot/dt))
+#     spikeMat = (np.random.rand(nTrains, nBins) < fr*dt).astype(int)
+#     tVec = np.arange(0,time_tot, dt)
+#     return tVec, spikeMat
+# '''
+# N = number of spiking neurons
+# mu = average firing rate-Hz
+# time_len = length of the input sequence-s
+# dt = delta t - s
+# '''
+# def poisson_spike_sum(N, mu, time_len):
+#     time, trains = poisson(mu, time_len, nTrains = N)
+#     cum = np.sum(trains, axis = 0)
+#     return time, cum
+
+
+# '''rates: 28 x 28 dimensional input current'''
+# def input_curr(rates, time, dt):
+#     I = []
+#     t_interp = np.arange(0, time, dt)
+#     #number of RN per odour
+#     nRNs = 200
+#     for r in rates:
+#         t, cum = poisson_spike_sum(nRNs, r, time, )
+#         interp = np.interp(t_interp, t, cum)
+#         I.append(interp)
+#     return np.reshape(I, (28,28, len(t_interp)))
+

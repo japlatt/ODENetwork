@@ -4,12 +4,16 @@ A module that contains various kind of input currents.
 To-dos:
 1. make sym2num for mutiple arguments
 """
-from jitcode import t
 import numpy as np
-import symengine
+
+from jitcode import t
+try:
+    import symengine as sym_backend
+except:
+    import sympy as sym_backend
 
 def sigmoid(x):
-    return 1./(1.+ symengine.exp(-x))
+    return 1./(1.+ sym_backend.exp(-x))
 
 def heaviside(x):
     K = 1e3 # some big number
@@ -27,4 +31,4 @@ evaluation.
 
 """
 def sym2num(t, expr):
-    return symengine.Lambdify(t, expr)
+    return sym_backend.Lambdify(t, expr)
