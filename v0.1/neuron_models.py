@@ -566,6 +566,140 @@ class PlasticNMDASynapseWithCaJL:
     def get_initial_condition(self):
         return [0., 0., 0.] ###
 
+class PlasticNMDASynapseWithCaDL:
+    """
+    A plastic synaspe inspired by Graupner and Brunel (2012).
+    The model used by them has a limited dynamical range of synaptic weight
+    fixed the ratio GAMMA_P/(GAMMA_D + GAMMA_P). We relaxed that by a
+    modification to the eom of synaptic weight.
+
+    This current only works when the CaJL neuron is the post-synaptic neuron!!!
+    """
+    COND_SYN = 1. # have to be fiine tuned according to each network
+    #COND_CA_SYN = 1.5
+
+    RE_PO_SYN = 0.
+
+    # Nernst/reversal potentials
+    HF_PO_NMDA = 20 # NMDA half potential, unit: mV
+    RE_PO_CA = 140 # K Nernst potential, unit: mV treating the same as neuron
+    # Transmitter shit
+    ALPHA_NMDA = 10. # just make it as big as possible so that rho_max is one
+    # Voltage response width (sigma)
+    V_REW_NMDA = 2 # NMDA voltage response width, unit: mV
+    # CALCIUM
+    CA_EQM = 0.
+    RELATIVE_COND_CA_SYN = 1.
+    # This choices normalizes both synapse- and voltage-gated calcium peak to 1.
+    AVO_CONST_SYN = 0.00095#0.0002 # ~"Avogadros constant", relate calcium concentraion and current
+    AVO_CONST_POS = 0.013972995788339456
+    #COND_CA_SYN = RELATIVE_COND_CA_SYN*5.119453924914676#1.5
+    # time constants
+    TAU_CA = 5.
+    #TAU_W = 10000.
+    TAU_RHO = 1.5*TAU_CA
+    # stdp stuff
+    # THETA_* are measured in unit of voltage-gated calcium peak = 1
+    THETA_P = 0.85
+    THETA_D = 0.4
+    GAMMA = 0.1
+    # if has zero rise time
+    # GAMMA_D = 1*np.log(THETA_P)/np.log(THETA_D) # have to be calibtated
+    # finite rise time: need calibration
+    GAMMA_D = 0.23389830508474577
+    # Dimension
+    #DIM = 2
+    DIM = 3
+    def __init__(self,ini_weight):
+        """
+        Args:
+            para: list of instance specific parameters
+        """
+        # self.rho_gate = y(i)
+        # self.syn_weight = y(i+1)
+        self.ii = None # integration index
+        self.reduced_weight = None
+        self.rho_gate = None
+        self.ca = None
+        self.ini_weight = ini_weight
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i # integration index
+        #self.syn_weight = y(i)
+        self.reduced_weight = y(i)
+        self.rho_gate = y(i+1)
+        self.ca = y(i+2) ###
+
+    def dydt(self, pre_neuron, pos_neuron):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this neuron
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this neuron
+        """
+        # gating varibales
+        v_pre = pre_neuron.v_mem
+        v_pos = pos_neuron.v_mem ###
+        # a_pos = pos_neuron.a_gate ###
+        # b_pos = pos_neuron.b_gate ###
+        rw = self.reduced_weight
+        #wij = self.syn_weight()
+        rho = self.rho_gate
+        ca = self.ca
+        # calcium currents
+        i_syn_ca = self.AVO_CONST_SYN*self.i_syn_ca_ij(v_pos) # NMDA channel
+        i_pos_ca = self.AVO_CONST_POS*pos_neuron.i_ca() # VGCC channel
+        i_leak_ca = (self.CA_EQM-self.ca)/self.TAU_CA
+        # transmitter (only NMDA here)
+        t_conc = sigmoid((v_pre-self.HF_PO_NMDA)/self.V_REW_NMDA)
+        # derivatives
+        yield self.GAMMA*(
+            heaviside(ca- self.THETA_P)
+            -self.GAMMA_D*heaviside(ca - self.THETA_D))
+        yield self.ALPHA_NMDA*t_conc*(1-rho) - rho/self.TAU_RHO
+        #Is this supposed to include post-synaptic cell current?????
+        #Yes, it's the overall post-synaptic calcium dynamics,
+        #includes both currents from NMDA and VGCC
+        yield i_syn_ca + i_pos_ca + i_leak_ca
+        # yield self.AVO_CONST*( pos_neuron.i_ca(-70., a_pos, b_pos)
+        #     + i_syn_ca) + (self.CA_EQM-self.ca)/self.TAU_CA ###
+    # helper functions
+    # The synaptic current at this particular dendrite/synapse
+    # It should depends only on the pos-synaptic voltage
+    def i_syn_ca_ij(self, v_pos):
+        rho = self.rho_gate
+        wij = self.syn_weight()
+        #return - self.COND_CA_SYN*rho_ij*(Vm_po - self.RE_PO_CA)
+        return wij*rho*(v_pos - self.RE_PO_CA)
+
+    def i_syn_ij(self, v_pos):
+        """
+        A function which calculates the total synaptic current
+        Args:
+            v_pos (float): The membrane potential of the post synaptic neuron
+        Returns:
+            A value for the total synaptic current, used by the post-synaptic cell
+        """
+
+        rho = self.rho_gate*self.COND_SYN
+        wij = self.syn_weight()
+        return wij*rho*(v_pos - self.RE_PO_SYN)
+
+    def syn_weight(self):
+        return sigmoid(self.reduced_weight)
+
+    def get_initial_condition(self):
+        return [self.ini_weight, 0., 0.] ###
+
 
 class HHNeuronWithCaJL:
     """
