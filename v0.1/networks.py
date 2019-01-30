@@ -132,9 +132,20 @@ def sparsely_connect_between_g(net, subgraph_1, subgraph_2, SynapseClass, prob, 
     pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
     for pos_neuron in pos_neurons:
         for pre_neuron in pre_neurons:
+            # avoid self to self connection
+            if pre_neuron == pos_neurons: continue
             if random.random() < prob:
                 # order matters when adding edges
                 net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g))
+
+# add random initial weights, for stdp synapses only
+def sparsely_connect_between_grandom(net, subgraph_1, subgraph_2, SynapseClass, prob, g):
+    pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
+    for pos_neuron in pos_neurons:
+        for pre_neuron in pre_neurons:
+            if random.random() < prob:
+                # order matters when adding edges
+                net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g*random.random()))
 
 """
 stack(net1, net2):
@@ -421,6 +432,7 @@ def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
     MBtoBLSynapseClass = other_para["mb_to_bl"]
     gALtoMB = other_para["gALMB"]
     gKCtoGNN = other_para["gKCGNN"]
+    gKCtoBL = other_para["gKCBL"]
     # rn = get_receptor_neurons(**rn_para)
     al = get_antennal_lobe(**al_para)
     mb = get_mushroom_body(**mb_para)
@@ -434,7 +446,7 @@ def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
     for glo in al.layers:
         pns = glo.layers[0]
         sparsely_connect_between_g(net, pns, kcs, ALtoMBSynapseClass, prob_a2k,gALtoMB)
-    sparsely_connect_between_g(net, kcs, bl, MBtoBLSynapseClass, prob_k2b,gKCtoGNN)
+    sparsely_connect_between_grandom(net, kcs, bl, MBtoBLSynapseClass, prob_k2b,gKCtoBL)
     # wrap around the labels
     net.labels = ["AL", "MB", "BL"]
     net.layers = [al, mb, bl]
