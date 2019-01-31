@@ -4,6 +4,9 @@ experiments.py
 A collection of various experiments that you can do without killing an animal.
 Feel free to put your experiment design here!
 
+TODO: jitcode requires symbolic inputs to integrate. How to we generate a series
+of input currents (stored as data elsewhere), and use that with jitcode?
+
 """
 import numpy as np
 import math
@@ -171,7 +174,7 @@ def get_labeled_data(picklename, MNIST_data_path, bTrain = True):
         # Get metadata for labels
         labels.read(4)  # skip the magic_number
         N = unpack('>I', labels.read(4))[0]
-    
+
         if number_of_images != N:
             raise Exception('number of labels did not match the number of images')
         # Get the data
@@ -182,7 +185,7 @@ def get_labeled_data(picklename, MNIST_data_path, bTrain = True):
                 print("i: %i" % i)
             x[i] = [[unpack('>B', images.read(1))[0] for unused_col in range(cols)]  for unused_row in range(rows) ]
             y[i] = unpack('>B', labels.read(1))[0]
-            
+
         data = {'x': x, 'y': y, 'rows': rows, 'cols': cols}
         pickle.dump(data, open("%s.pickle" % picklename, "wb"), -1)
     return data
@@ -222,4 +225,3 @@ def get_labeled_data(picklename, MNIST_data_path, bTrain = True):
 #         interp = np.interp(t_interp, t, cum)
 #         I.append(interp)
 #     return np.reshape(I, (28,28, len(t_interp)))
-
