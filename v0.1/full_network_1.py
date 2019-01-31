@@ -46,7 +46,7 @@ bl_para = dict(num_bl=10, #flies: 34
 # Added in option to use different connecting synapse.
 # Play with the last 2 conductance values.
 other_para = dict(prob_a2k=0.3, prob_k2b=0.5, al_to_mb=nm.Synapse_nAch_PN_2,
-    mb_to_bl=nm.PlasticNMDASynapseWithCaDL,gALMB=0.66,gKCGNN=500.0,gKCBL=1.0)
+    mb_to_bl=nm.StdpSynapse,gALMB=0.66,gKCGNN=500.0,gKCBL=3.5)
 
 full = net.get_olfaction_net(al_para=al_para,
     mb_para=mb_para, bl_para=bl_para, other_para=other_para)
