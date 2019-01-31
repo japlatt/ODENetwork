@@ -100,6 +100,7 @@ def fully_connect_between(net, subgraph_1, subgraph_2, SynapseClass):
     pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
     for pos_neuron in pos_neurons:
         for pre_neuron in pre_neurons:
+            if pre_neuron == pos_neuron: continue
             # order matters when adding edges
             net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass())
 
@@ -107,6 +108,7 @@ def fully_connect_between_g(net, subgraph_1, subgraph_2, SynapseClass, g):
     pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
     for pos_neuron in pos_neurons:
         for pre_neuron in pre_neurons:
+            if pre_neuron == pos_neuron: continue
             # order matters when adding edges
             net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g))
 
@@ -124,25 +126,30 @@ def sparsely_connect_between(net, subgraph_1, subgraph_2, SynapseClass, prob):
     pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
     for pos_neuron in pos_neurons:
         for pre_neuron in pre_neurons:
+            if pre_neuron == pos_neuron: continue
             if random.random() < prob:
                 # order matters when adding edges
                 net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass())
+
+
 
 def sparsely_connect_between_g(net, subgraph_1, subgraph_2, SynapseClass, prob, g):
     pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
     for pos_neuron in pos_neurons:
         for pre_neuron in pre_neurons:
             # avoid self to self connection
-            if pre_neuron == pos_neurons: continue
+            if pre_neuron == pos_neuron: continue
             if random.random() < prob:
                 # order matters when adding edges
                 net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g))
+
 
 # add random initial weights, for stdp synapses only
 def sparsely_connect_between_grandom(net, subgraph_1, subgraph_2, SynapseClass, prob, g):
     pre_neurons, pos_neurons = subgraph_1.nodes(), subgraph_2.nodes()
     for pos_neuron in pos_neurons:
         for pre_neuron in pre_neurons:
+            if pre_neuron == pos_neuron: continue
             if random.random() < prob:
                 # order matters when adding edges
                 net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g*np.random.rand()))
@@ -460,6 +467,12 @@ Simplified Antenna Lobe Functions
 Mostly following Bazhenov 2001
 -------------------------------------------------------------
 """
+'''
+
+These functions are now redundant.
+
+'''
+
 
 def connect_layer(layer, connections, prob, g):
     """
@@ -490,7 +503,9 @@ def interconnect(layer1, layer2, synapse1, synapse2, prob1, prob2, g1, g2):
     net3.labels = layer1.labels + layer2.labels
     return net3
 
-#specifically for the 6PN, 2LN network in Fig1 Bazhenov 2001
+'''
+Helper function to create_AL_man. Makes edge connections between neurons.
+'''
 def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 400.0, gLNPN = 800.0, gPN = 350.0, gPNLN = 300.0 ):
     #test values
     gLN = 110.0 #400
@@ -536,6 +551,11 @@ def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 400.0, gLNPN = 800.0, g
     return AL
 
 #Creates AL from the 2001 Bazhenov paper
+'''
+This function recreates the small 6 PN 2 LN network in Bazhenov's 2001 paper.
+Used for testing antennal lobe dynamics on a small scale.
+'''
+
 def create_AL_man(LNClass, PNClass, LNSynapse, PNSynapse, gLN=400.0, gLNPN=800.0, gPN=350.0, gPNLN=300.0):
     LNs = get_single_layer(LNClass, 2)
     PNs = get_single_layer(PNClass, 6)

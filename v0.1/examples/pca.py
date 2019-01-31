@@ -2,6 +2,8 @@
 # import matplotlib
 # matplotlib.use("TKAgg")
 
+# perhaps it is better to plot pca on few points (not 3 seconds of data as each point reaches the fixed attractor relatively quicly.
+
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,25 +29,22 @@ def bins(data, bin_size):
     return np.apply_along_axis(num_spikes, 1, split)
 
 #run command
-#python pca.py Data/filenames.txt
-
-#import filenames by loading in file
-#filenames = np.loadtxt(sys.argv[1], dtype = str)
 
 #folder with exported data
 prefix = 'results/'
 num_odors = 2
-num_conc = 4
-num_trials = 10
+num_conc = 2 # unused
+num_trials = 1 # trials will get averaged
 #load data
 tot_data = []
 for i in sorted(glob.glob('results/AL*_od*_inj*')):
-    print(i)
     name = i
     tot_data.append(np.load(name))
 
 print(np.shape(tot_data))
-print(len(tot_data))
+single_ts = len(tot_data[0][0])
+
+# Average multiple trials of same odor/conc value
 avg_data = []
 for k in range(int(len(tot_data)/num_trials)):
     tmp = tot_data[k*num_trials:num_trials + k*num_trials]
@@ -76,42 +75,7 @@ v = pca.components_
 
 Xk = pca.transform(data.T)
 #Xorg = pca.transform(np.asarray(avg_data).T)
-
-#save each odor/concatenation
-#60 bins in each concatenation
-for i in range(3):
-	for j in range(4):
-		start = i*240+j*60
-		end = start+60
-		np.savetxt('projected_AL_30-90_od'+str(i)+'_c' + str(j)+'.txt', Xk[start:end, :])
-
-# np.savetxt('projected_AL_30-90_od1.txt', Xk[:240, :])
-# np.savetxt('projected_AL_30-90_od2.txt', Xk[240:480, :])
-# np.savetxt('projected_AL_30-90_od3.txt', Xk[480:720, :])
-
-# print(np.shape(Xk))
-# print(np.shape(Xk[:240, :]))
-# print(np.shape(Xk[240:480, :]))
-
-#plot for data with 3 odour and 4 concentrations per odour
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-colors = itertools.cycle(["b", "y", "r"])
-marker = itertools.cycle(['^', 'o', 's', 'p'])
-c = next(colors)
-m = next(marker)
-for i in range(len(Xk[:,0])):
-    if i%240 == 0 and i != 0:
-        c = next(colors)
-    if i%60 == 0 and i != 0:
-        m = next(marker)
-    ax.scatter(Xk[i, 0], Xk[i, 1], Xk[i, 2], color = c, marker = m)
-plt.show()
-
-
-
-
-=======
-np.savetxt('projected_AL_30-90.txt', Xk)
+for i in range(num_odors):
+	for j in range(num_conc):
+		np.savetxt('results/odor{0}_conc{1}.txt'.format(i,j), Xk[(i*num_conc+j)*single_ts:(i*num_conc+j+1)*single_ts])
 print(Xk.shape)
->>>>>>> dfaf1d080d4ca7c68bf36f89e71cfe8edc8a9608:v0.1/pca.py
