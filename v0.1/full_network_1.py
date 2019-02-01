@@ -43,15 +43,13 @@ bl_para = dict(num_bl=10, #flies: 34
 # bl = net.get_beta_lobe(**bl_para)
 # net.draw_colored_layered_digraph(bl)
 
-<<<<<<< HEAD
+
 # Added in option to use different connecting synapse.
 # Play with the last 2 conductance values.
 other_para = dict(prob_a2k=0.3, prob_k2b=0.5, al_to_mb=nm.Synapse_nAch_PN_2,
     mb_to_bl=nm.PlasticNMDASynapseWithCaJL,gALMB=0.66,gKCGNN=500.0)
-=======
 
-other_para = dict(prob_a2k=0.33, prob_k2b=0.5)
->>>>>>> origin
+
 full = net.get_olfaction_net(al_para=al_para,
     mb_para=mb_para, bl_para=bl_para, other_para=other_para)
 

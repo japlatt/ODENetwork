@@ -26,7 +26,8 @@ def add_current(AL, curr, Nglo, Npn):
     neuron_inds = [np.nonzero(I_ext[j])[0].tolist() for j in range(Nglo)]
     current_vals = [I_ext[j][np.nonzero(I_ext[j])] for j in range(Nglo)]
     return neuron_inds, current_vals
-
+'''To run you need to download 
+the MNIST dataset from http://yann.lecun.com/exdb/mnist/'''
 MNIST_data_path = '/Users/Jason/Desktop/Mothnet/MNIST_data/'
 
 
