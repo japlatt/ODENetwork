@@ -152,7 +152,7 @@ def sparsely_connect_between_grandom(net, subgraph_1, subgraph_2, SynapseClass, 
             if pre_neuron == pos_neuron: continue
             if random.random() < prob:
                 # order matters when adding edges
-                net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g*random.random()))
+                net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g*np.random.rand()))
 
 """
 stack(net1, net2):
