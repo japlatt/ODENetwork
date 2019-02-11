@@ -4,7 +4,8 @@ inhibitory local neurons and two projection neurons. The archtecture
 of the network can be seen in Bazhenov's 2001 paper. This small network
 demonstrates key characteristics in a large antennal lobe: (1) competition
 between mutually inhibited local neurons and (2) transient synchrony of
-projection neurons with the local field potential.
+projection neurons with the local field potential. Connections here are 
+made manually as random connections on such a small network cause issue
 '''
 
 # begin boiler plate for compatibility

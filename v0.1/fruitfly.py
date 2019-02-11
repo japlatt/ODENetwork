@@ -3,7 +3,7 @@
 # olfaction net. Numbers iin this script are from fruit flies.
 # Please refer to networks.py for details of implmentation.
 # Connectivities are known up to various levels of details;
-# Numbers of neurons are well-known, connectivity beteen anatomical stucture
+# Numbers of neurons are well-known, connectivity between anatomical stucture
 # are known, probabilities of random connections are less clear.
 # Anyway, details may change as we dig deeper over time.
 # Reference: https://www.overleaf.com/3872811452hqfrrvcxmyfs

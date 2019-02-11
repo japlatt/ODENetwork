@@ -13,14 +13,30 @@ import experiments as ex
 from itertools import chain
 
 
-#First number is #LNs, second is #PNs
-neuron_nums = [30, 90]
-#Create_AL creates AL with random connections with prob 0.5, -1 conductivity -> no connection
-AL = net.create_AL(nm.LN, nm.PN_2, nm.Synapse_gaba_LN_with_slow, nm.Synapse_nAch_PN_2, \
-neuron_nums, gLN = 100.0, gLNPN = 400.0, gPN = -1.0, gPNLN = 600.0)
-#Set up the experiment
-num_layers = 2
 
+
+
+#Layer 1: Antennal Lobe (AL) [first stage in separation]
+glo_para = dict(num_pn=6, num_ln=2, # flies: 3 and 30
+    PNClass=nm.PN_2, LNClass=nm.LN,
+    PNSynapseClass=nm.Synapse_nAch_PN_2, LNSynapseClass=nm.Synapse_gaba_LN_with_slow)
+
+al_para = dict(num_glo=15, glo_para=glo_para) # flies: 54
+
+
+AL = net.get_antennal_lobe(**al_para)
+
+
+# net.draw_colored_layered_digraph(AL)
+
+num_layers = len(AL.layers)
+Ibase = 150 # nA
+p = 0.33 #probability
+
+#run for specified time with dt
+time_len = 3000.0
+dt = 0.02
+time_sampled_range = np.arange(0., time_len, dt)
 
 num_odors = int(input('Enter number of odours: '))
 num_per_od = int(input('Enter # different concentrations per od: '))
@@ -28,64 +44,51 @@ adj_m = net.get_edges_data(AL, "weight")
 num_trials = int(input('Enter number of runs to be completed for each odor/concentration: '))
 
 for number in range(num_odors):
-	#Each odour is encoded by injected current in different subsets of neurons
-	curr_neurons = [np.random.rand(neuron_nums[0]), np.random.rand(neuron_nums[1])]
-	np.save('results/stimuli{0}'.format(number),curr_neurons)
+	# Each odour is encoded by injected current in different subsets of neurons
+	I_ext = []
+	# Establishes 1 for receives current and 0 for not receiving current
+	for i in range(num_layers):
+		# neurons per glomeruli
+		num_neur = len(AL.layers[i].nodes)
+    	#array of length num_neur with random vals between 0-1
+		I_ext.append(np.random.rand(num_neur))
+    	#find neurons with input current
+		I_ext[i][(np.nonzero(I_ext[i] >= (1-p)))] = 1.0
+    	# set all non-input neurons curr to 0
+		I_ext[i] = np.floor(I_ext[i])
+
+	# Records neuron indicies to be injected with current
+	curr_inds = [np.nonzero(I_ext[k])[0].tolist() for k in range(num_layers)]
 
 	for j in range(num_per_od):
-		#Different concentrations
-		#repeated number of trials
-		p = 0.33 #proportion of neurons with injected current
+		# Varies the amplitude of injected current
+		Iscale = j*Ibase + Ibase
 
-		# Roughly the max current each neuron is injected with.
-		#present each odor at different concentrations
-		Iscale = j*150 + 150
-		I_ext = []
-		for i in range(num_layers):
-			#choose the neurons to get current
-		    I_ext.append(curr_neurons[i])
-		    I_ext[i][(np.nonzero(I_ext[i] >= (1-p)))] = 1.0
 
-		    I_ext[i] = np.floor(I_ext[i])
-		    I_ext[i][np.nonzero(I_ext[i])] = Iscale*np.asarray(I_ext[i][np.nonzero(I_ext[i])])
-		curr_inds = [np.nonzero(I_ext[j])[0].tolist() for j in range(num_layers)]
-		current_vals = [I_ext[j][np.nonzero(I_ext[j])] for j in range(num_layers)]
+		current_vals = Iscale*np.asarray([I_ext[k][np.nonzero(I_ext[k])] for k in range(num_layers)])
 
+		# If we want repeat trials (for example, in the event that we add noise to the system)
 		for trial in range(num_trials):
 			print('Odor: {0}, Concentration {1}, Trial {2}'.format(number,j,trial))
 			ex.const_current(AL, num_layers, curr_inds, current_vals)
 
-			#set up the lab
+			# set up the lab
 			f, initial_conditions, all_neuron_inds = lm.set_up_lab(AL)
-
-			#run for specified time with dt
-			time_len = 3000.0
-			dt = 0.02
-			time_sampled_range = np.arange(0., time_len, dt)
-
+			# run the lab
 			data = lm.run_lab(f, initial_conditions, time_sampled_range, integrator = 'dopri5',compile=True)
 
-			pn_inds = np.array([n.ii for n in AL.layers[1].nodes()])
-			ln_inds = np.array([n.ii for n in AL.layers[0].nodes()])
-			inds = np.append(np.asarray(ln_inds),np.asarray(pn_inds))
-
 			data = np.transpose(data)
-			#	od.append(sol)
+			pn_inds = np.concatenate(np.array([[n.ii for n in AL.layers[j].layers[0].nodes()] for j in range(np.shape(AL.layers)[0])]),axis=0)
+			ln_inds = np.concatenate(np.array([[n.ii for n in AL.layers[j].layers[1].nodes()] for j in range(np.shape(AL.layers)[0])]),axis=0)
 			np.save('results/AL_3090_od{0}_inj{1}_t{2}'.format(number,Iscale,trial),data[pn_inds])
 			data = None
 
-		adj_md = adj_m+np.diag(np.concatenate(I_ext))
-
-		np.savetxt('Data/AL_3090_' + str(Iscale)+ '_'+str(number)+'adj_mat.txt', adj_md,
-			fmt='%1.2f')
-#np.save('large_network.npy',sol[inds])
 
 
 # This is code to export an adjacency matrix
-#import networkx as nx
-#import matplotlib.pyplot as plt
-#np.savetxt('adj_mat.dat',nx.to_numpy_matrix(AL))
-
+# import networkx as nx
+# import matplotlib.pyplot as plt
+# np.savetxt('adj_mat.dat',nx.to_numpy_matrix(AL))
 
 # lm.show_random_neuron_in_layer(time_sampled_range,data,AL,0,2)
 # lm.show_random_neuron_in_layer(time_sampled_range,data,AL,1,6)
