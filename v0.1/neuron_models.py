@@ -529,7 +529,7 @@ class PlasticNMDASynapseWithCaJL:
         # calcium currents
         i_syn_ca = self.AVO_CONST_SYN*self.i_syn_ca_ij(v_pos) #leaving synapse
         i_pos_ca = self.AVO_CONST_POS*pos_neuron.i_ca() # why do I care about this??
-        i_leak_ca = (self.CA_EQM-self.ca)/self.TAU_CA
+        i_leak_ca = (self.ca-self.CA_EQM)/self.TAU_CA
         # transmitter (only NMDA here)
         t_conc = sigmoid((v_pre-self.HF_PO_NMDA)/self.V_REW_NMDA)
         # derivatives
@@ -538,7 +538,7 @@ class PlasticNMDASynapseWithCaJL:
             -self.GAMMA_D*heaviside(ca - self.THETA_D))
         yield self.ALPHA_NMDA*t_conc*(1-rho) - rho/self.TAU_RHO
         #Is this supposed to include post-synaptic cell current?????
-        yield i_syn_ca + i_pos_ca + i_leak_ca
+        yield - i_syn_ca - i_pos_ca - i_leak_ca
         # yield self.AVO_CONST*( pos_neuron.i_ca(-70., a_pos, b_pos)
         #     + i_syn_ca) + (self.CA_EQM-self.ca)/self.TAU_CA ###
     # helper functions
@@ -567,7 +567,7 @@ class PlasticNMDASynapseWithCaJL:
         return sigmoid(self.reduced_weight)
 
     def get_initial_condition(self):
-        return [0., 0., 0.] ###
+        return [0.5, 0.5, 0.1] ###
 
 class StdpSynapse:
     """
@@ -621,7 +621,7 @@ class StdpSynapse:
     # Dimension
     DIM = 5
 
-    def __init__(self, initial_cond):
+    def __init__(self, initial_cond=3.5):
         # integration index
         self.ii = None
         # Plasticity: changable maximum conductance of AMPA receptor
@@ -676,7 +676,7 @@ class StdpSynapse:
         yield self.get_gating_dynamics(self.TAU_NMDA_SLOW, v_pre, self.nmda_gate_slow, self.PARA_NMDA_SLOW)
         yield self.get_gating_dynamics(self.TAU_AMPA, v_pre, self.ampa_gate, self.PARA_AMPA)
         #This is the calcium concentration of the post-synaptic cell, ca_ampa is ignored
-        yield - ca_nmda - ca_vgcc + (self.CA_EQM-self.ca)/self.TAU_CA
+        yield - ca_nmda - ca_vgcc - (self.ca-self.CA_EQM)/self.TAU_CA
 
     def i_syn_ij(self, v_pos):
         return self.get_nmda_current(v_pos) + self.get_ampa_current(v_pos)
