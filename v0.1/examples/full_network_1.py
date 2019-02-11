@@ -8,9 +8,17 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
+import sys
+
+# This is a janky solution to import the modules. We will need to go back
+# and make this a proper package
+sys.path.append('..')
+
 #build network
 
 """
+An example for how to construct the full olfaction network.
+
 General TODO list:
 
 TODO: Fix the network. Currently, the KC's are not firing sparsely enough,
@@ -45,8 +53,8 @@ bl_para = dict(num_bl=10, #flies: 34
 
 # Added in option to use different connecting synapse.
 # Play with the last 2 conductance values.
-other_para = dict(prob_a2k=0.1, prob_k2b=0.5, al_to_mb=nm.Synapse_nAch_PN_2,
-    mb_to_bl=nm.StdpSynapse,gALMB=0.66,gKCGNN=500.0,gKCBL=3.5)
+other_para = dict(prob_a2k=0.3, prob_k2b=0.5, al_to_mb=nm.Synapse_nAch_PN_2,
+    mb_to_bl=nm.PlasticNMDASynapseWithCaDL,gALMB=0.66,gKCGNN=500.0,gKCBL=1.0)
 
 full = net.get_olfaction_net(al_para=al_para,
     mb_para=mb_para, bl_para=bl_para, other_para=other_para)

@@ -1,10 +1,5 @@
 import numpy as np
-import scipy as sp
-import pickle
-import os.path
 import time
-from struct import unpack
-import math
 import skimage
 
 import networks as net
@@ -26,7 +21,8 @@ def add_current(AL, curr, Nglo, Npn):
     neuron_inds = [np.nonzero(I_ext[j])[0].tolist() for j in range(Nglo)]
     current_vals = [I_ext[j][np.nonzero(I_ext[j])] for j in range(Nglo)]
     return neuron_inds, current_vals
-
+'''To run you need to download 
+the MNIST dataset from http://yann.lecun.com/exdb/mnist/'''
 MNIST_data_path = '/Users/Jason/Desktop/Mothnet/MNIST_data/'
 
 
@@ -70,25 +66,25 @@ num_examples = 4.0 #len(training)
 j = 0
 dat_arr = []
 while j < (int(num_examples)):
-	print('image: ' + str(j))
-	rates = training['x'][j%60000,:,:] / 8.*input_intensity
-	downsample = skimage.transform.downscale_local_mean(rates, (scalex, scaley))
-	print('downsampled image from (28, 28) to ' + str(downsample.shape))
-	linear = np.ravel(downsample)
-	neuron_inds, current_vals = add_current(AL, linear, Nglo, Npn)
+    print('image: ' + str(j))
+    rates = training['x'][j%60000,:,:] / 8.*input_intensity
+    downsample = skimage.transform.downscale_local_mean(rates, (scalex, scaley))
+    print('downsampled image from (28, 28) to ' + str(downsample.shape))
+    linear = np.ravel(downsample)
+    neuron_inds, current_vals = add_current(AL, linear, Nglo, Npn)
 
-	ex.const_current(AL, Nglo, neuron_inds, current_vals)
-	#set up the lab
-	f, initial_conditions, neuron_inds  = lm.set_up_lab(AL)
-	time_sampled_range = np.arange(0., time_per_image*1000, dt*1000)
+    ex.const_current(AL, Nglo, neuron_inds, current_vals)
+    #set up the lab
+    f, initial_conditions, neuron_inds  = lm.set_up_lab(AL)
+    time_sampled_range = np.arange(0., time_per_image*1000, dt*1000)
 
-	data = lm.run_lab(f, initial_conditions, time_sampled_range, integrator = 'dopri5',compile=True)
-	dat_arr.append(data)
+    data = lm.run_lab(f, initial_conditions, time_sampled_range, integrator = 'dopri5',compile=True)
+    dat_arr.append(data)
 
-	lm.show_random_neuron_in_layer(time_sampled_range,data,AL,1,2)
-	lm.show_random_neuron_in_layer(time_sampled_range,data,AL,3,2)
-	lm.show_random_neuron_in_layer(time_sampled_range,data,AL,5,2)
+    lm.show_random_neuron_in_layer(time_sampled_range,data,AL,1,2)
+    lm.show_random_neuron_in_layer(time_sampled_range,data,AL,3,2)
+    lm.show_random_neuron_in_layer(time_sampled_range,data,AL,5,2)
 
-	j+=1
+    j+=1
 np.save('MNIST_AL_data.npy', dat_arr)
 

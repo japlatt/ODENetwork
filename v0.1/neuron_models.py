@@ -684,6 +684,163 @@ class StdpSynapse:
     def get_initial_condition(self):
         return [0.5, 0.5, 0.5, 0.5, 1.]
 
+class StdpSynapse2:
+    """
+    A stdp plastic synaspe
+    with dynamics of both NMDA and AMPA receptors
+
+    paramters taken from Abarbanel, Henry DI, et al.
+    "Synaptic plasticity with discrete state synapses."
+    Physical Review E 72.3 (2005): 031914.
+
+    Different from 1 by implementing master equation
+    form for updating weight parameters.
+    """
+
+    # parameters for synaptic gating variables
+    PROP_FAST_NMDA = 0.81
+    TAU_NMDA_FAST = 67.5
+    PARA_NMDA_FAST = 70./67.5
+    TAU_NMDA_SLOW = 245.
+    PARA_NMDA_SLOW = 250./245.
+    TAU_AMPA = 1.4
+    PARA_AMPA = 1.5/1.4
+
+    # reversal potential for excititory synapse
+    RE_PO_EX = 0.
+
+    # related conductances
+    COND_NMDA = 0.05
+    # COND_AMPA = 1.75
+    INMDA_TO_CA = 0.15/0.05
+    # IAMPA_TO_CA = 1.5e-5/1.75
+    ICA_TO_CA = 3.5/0.1
+    # G_NMDA = 0.05
+    # G_AMPA = 1.75
+    # G_C = 1.0e-6
+    # G_NC = 0.15
+    # G_AC = 1.5e-5
+    # G_CC = 3.5e-5
+
+    #bounds on synaptic weight
+    G0 = 0.
+    G1 = 0.5
+    G2 = 1.
+
+    #master equation transitions
+    A = 1.0
+    B = 1.0
+
+    #magnesium concentration
+    MG = 1.
+    #calcium
+    TAU_CA = 30.
+    CA_EQM = 1.
+
+    # Dimension
+    DIM = 9
+
+
+    def __init__(self, initial_cond):
+        # integration index
+        self.ii = None
+        # Plasticity: changable maximum conductance of AMPA receptor
+        self.stdp_weight = None
+        # gating variables of synaptic currents
+        self.nmda_gate_fast = None
+        self.nmda_gate_slow = None
+        self.ampa_gate = None
+        # post-synaptic calcium concentration
+        self.ca = None
+        # initial AMPA conductances before stdp learning
+        self.initial_cond = initial_cond
+
+        self.p0 = None
+        self.p1 = None
+
+        self.P = None
+        self.D = None
+
+    def set_integration_index(self, i):
+        self.ii = i
+        self.stdp_weight = y(i)
+        self.nmda_gate_fast = y(i+1)
+        self.nmda_gate_slow = y(i+2)
+        self.ampa_gate = y(i+3)
+        self.ca = y(i+4)
+        self.p0 = y(i+5)
+        self.p1 = y(i+6)
+        self.P = y(i+8)
+        self.D = y(i+9)
+
+    def get_gating_dynamics(self, time_const, v_pre, gating_var, control_para):
+        return (1./time_const)*((step(v_pre)-gating_var)/(control_para-step(v_pre)))
+
+    def get_nmda_current(self, v_pos):
+
+        nmda_gate = self.PROP_FAST_NMDA*self.nmda_gate_fast+(1-self.PROP_FAST_NMDA)*self.nmda_gate_slow
+        magnesium_control = 1./(1.+0.288*self.MG*sym_backend.exp(-0.062*v_pos))
+        return self.COND_NMDA*nmda_gate*magnesium_control*(v_pos-self.RE_PO_EX)
+
+    def get_ampa_current(self, v_pos):
+        return self.initial_cond*self.stdp_weight*self.ampa_gate*(v_pos-self.RE_PO_EX)
+
+    def gamma01(self, P, D):
+        return P*D**4
+    def gamma10(self, P, D):
+        return D*P**4
+
+    def Fp(self, x):
+        return x**10.5/(6.7**10.5+x**10.5)
+
+    def Fd(self, x):
+        return 1.25*x**4.75/(13.5**4.75+x**4.75)
+
+
+    def dydt(self, pre_neuron, pos_neuron):
+        v_pre = pre_neuron.v_mem
+        v_pos = pos_neuron.v_mem
+        # a_pos = pos_neuron.a_gate
+        # b_pos = pos_neuron.b_gate
+        i_nmda = self.get_nmda_current(v_pos)
+        # i_ampa = self.get_ampa_current(v_pos)
+
+        ca_nmda = self.INMDA_TO_CA*i_nmda
+        #ca_ampa = self.IAMPA_TO_CA*i_ampa
+        ca_vgcc = self.ICA_TO_CA*pos_neuron.i_ca()
+
+        f = self.gamma01(self.P, self.D)
+        g = self.gamma10(self.P, self.D)
+
+        dca = self.CA_EQM-self.ca
+
+
+        p2 = 1-self.p0-self.p1
+        #weight
+        yield self.G0*self.p0+self.G1*self.p1+self.G2*p2
+        #nmda gate fast
+        yield self.get_gating_dynamics(self.TAU_NMDA_FAST, v_pre, self.nmda_gate_fast, self.PARA_NMDA_FAST)
+        #nmda gate slow
+        yield self.get_gating_dynamics(self.TAU_NMDA_SLOW, v_pre, self.nmda_gate_slow, self.PARA_NMDA_SLOW)
+        #ampa gate
+        yield self.get_gating_dynamics(self.TAU_AMPA, v_pre, self.ampa_gate, self.PARA_AMPA)
+        #This is the calcium concentration of the post-synaptic cell, ca_ampa is ignored
+        yield - ca_nmda - ca_vgcc + dca/self.TAU_CA
+        #p0
+        yield -f*self.p0 + g*self.p1
+        #p1
+        yield f*self.p0 - g*self.p1 + self.A*f*p2 - self.B*f*self.p1
+        #P
+        yield self.Fp(dca)*(1-self.P)-self.P/10.
+        #D
+        yield self.Fd(dca)*(1-self.D)-self.D/30.
+
+    def i_syn_ij(self, v_pos):
+        return self.get_nmda_current(v_pos) + self.get_ampa_current(v_pos)
+
+    def get_initial_condition(self):
+        return [0.5, 0.5, 0.5, 0.5, 1.]
+
 
 class HHNeuronWithCaJL:
     """
@@ -1850,6 +2007,7 @@ class Synapse_nAch_PN:
     BETA_R = 0.2
     MAX_CONC = 0.5
     SI = False
+
 
     Kp = 1.5
     Vp = -20.0
