@@ -25,19 +25,21 @@ from importlib import reload
 reload(nm)
 reload(lm)
 
+# Step 1: Pick a network
+neuron_nums = [1,1] # number of neurons in each layer
+NUM_NEURON = np.sum(neuron_nums)
+NUM_SYN = np.prod(neuron_nums)
+neuron_type = nm.HHNeuronWithCaJL
+NUM_DIM_NEURON = neuron_type.DIM
+##### change your synapse class here
+synapse_type = nm.StdpSynapse
+NUM_DIM_SYN = synapse_type.DIM
+
+net = ns.get_multilayer_fc(neuron_type, synapse_type, neuron_nums)
+total_time = 200.
+time_sampled_range = np.arange(0., total_time, 0.1)
+
 def get_data(delta_time):
-
-    # Step 1: Pick a network
-    neuron_nums = [1,1] # number of neurons in each layer
-    NUM_NEURON = np.sum(neuron_nums)
-    NUM_SYN = np.prod(neuron_nums)
-    neuron_type = nm.HHNeuronWithCaJL
-    NUM_DIM_NEURON = neuron_type.DIM
-    ##### change your synapse class here
-    synapse_type = nm.StdpSynapse
-    NUM_DIM_SYN = synapse_type.DIM
-
-    net = ns.get_multilayer_fc(neuron_type, synapse_type, neuron_nums)
 
     # step 2: design an experiment
     T0 = 50.
@@ -48,8 +50,7 @@ def get_data(delta_time):
     f, initial_conditions, neuron_inds = lm.set_up_lab(net)
 
     # step 4: run the lab and gather data
-    total_time = 200.
-    time_sampled_range = np.arange(0., total_time, 0.1)
+
     data = lm.run_lab(f, initial_conditions, time_sampled_range)
 
     return data
@@ -64,7 +65,7 @@ w_index = 0
 
 fig, axes = plt.subplots(2, 1, sharex = 'col', figsize = (8,5))
 #axes = axes.reshape(2, 1)
-fig.suptitle(r'$\Delta t =  {}(ms)$'.format(TIME_DELAY), fontsize = 22)
+fig.suptitle(r'$\Delta t =  {}(ms)$'.format(delta_time), fontsize = 22)
 axes[0].plot(time_sampled_range, data[:,NUM_NEURON*NUM_DIM_NEURON + 0*NUM_DIM_SYN + ca_index], color="blue", label="Ca", linewidth = 2)
 axes[0].axhline(nm.StdpSynapse.THETA_D, color="orange", label=r"$\theta_d$", linewidth = 2)
 axes[0].axhline(nm.StdpSynapse.THETA_P, color="green", label=r"$\theta_p$", linewidth = 2)
