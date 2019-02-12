@@ -34,7 +34,7 @@ Ibase = 150 # nA
 p = 0.33 #probability
 
 #run for specified time with dt
-time_len = 3000.0
+time_len = 1000.0
 dt = 0.02
 time_sampled_range = np.arange(0., time_len, dt)
 

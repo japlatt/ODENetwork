@@ -506,7 +506,7 @@ def interconnect(layer1, layer2, synapse1, synapse2, prob1, prob2, g1, g2):
 '''
 Helper function to create_AL_man. Makes edge connections between neurons.
 '''
-def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 400.0, gLNPN = 800.0, gPN = 350.0, gPNLN = 300.0 ):
+def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 100.0, gLNPN = 400.0, gPN = 350.0, gPNLN = 600.0 ):
     #test values
     gLN = 110.0 #400
     gLNPN = 400.0 #800
