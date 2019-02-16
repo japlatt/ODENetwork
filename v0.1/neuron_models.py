@@ -1892,10 +1892,13 @@ class Synapse_nAch_PN_2:
 
 """
 Trial Models: Models we think may work better/make connecting multiple parts easier
+
+Capacitance set to 1.0, all conductance values divied by 100. Should we divide
+by 142 instead?
 """
 class LNRescaled:
     """
-    Model of Local Neurons pulled from Bazhenov's 2015 paper with Stopfer.
+    Model of Local Neurons above, but rescaled.
 
 
     Taken from:
@@ -2021,7 +2024,7 @@ class LNRescaled:
     def dq_dt(self, Ca, q): return (self.q0(Ca)-q)/self.tq(Ca)
     def dnl_dt(self, V, nl): return (self.nl0(V)-nl)/self.tnl(V)
 
-class Synapse_LN_Rescaled:
+class Synapse_LNSI_Rescaled:
     #inhibition
     REV_PO_GABA = -70.0
     ALPHA_R = 10.0
@@ -2041,7 +2044,7 @@ class Synapse_LN_Rescaled:
     REV_PO_K = -95.0 # mV
 
     DIM = 3
-    def __init__(self, gGABA = 1.0, gSI = 4.0):
+    def __init__(self, gGABA = 4.0, gSI = 4.0):
         self.r_gate = None
         self.s_gate = None
         self.g_gate = None
@@ -2093,7 +2096,7 @@ class Synapse_LN_Rescaled:
         return [self.COND_GABA, self.REV_PO_GABA, self.COND_SI, self.REV_PO_K, self.K]
 
     def get_initial_condition(self):
-        return [0.0,0.0,0.0]
+        return [0.0+np.random.uniform()*0.01,0.0+np.random.uniform()*0.01,0.0]
 
     def i_syn_ij(self, v_pos):
         """
@@ -2107,6 +2110,76 @@ class Synapse_LN_Rescaled:
         wij = self.syn_weight
         rho1 = self.COND_SI*self.g_gate**4/(self.g_gate**4 + self.K)
         return wij*rho0*(v_pos - self.REV_PO_GABA) + wij*rho1*(v_pos - self.REV_PO_K)
+
+class Synapse_LN_Rescaled:
+    #inhibition
+    RE_PO_GABA = -70.0
+    ALPHA_R = 10.0
+    BETA_R = 0.16
+    MAX_CONC = 1.0
+
+
+    V_REW_R = 1.5
+    HF_PO_R = -20.0
+
+
+    DIM = 1
+    def __init__(self, gGABA = 8.0):
+        self.r_gate = None
+        self.syn_weight = 1.0
+        self.COND_GABA = gGABA
+
+
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i
+        self.r_gate = y(i)
+
+
+    def get_ind(self):
+        return self.ii
+
+    def fix_weight(self, w):
+        self.syn_weight = w
+
+    def dydt(self, pre_neuron, pos_neuron):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this synapse
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this synapse
+        """
+        Vpre = pre_neuron.v_mem
+        r = self.r_gate #This corresponds to fast GABA
+        yield (self.ALPHA_R*self.MAX_CONC/(1+sym_backend.exp(-(Vpre - self.HF_PO_R)/self.V_REW_R)))*(1-r) - self.BETA_R*r
+
+
+    def get_params(self):
+        return [self.COND_GABA, self.REV_PO_GABA]
+
+    def get_initial_condition(self):
+        return [0.0+np.random.uniform()*0.01]
+
+    def i_syn_ij(self, v_pos):
+        """
+        A function which calculates the total synaptic current
+        Args:
+            v_pos (float): The membrane potential of the post synaptic neuron
+        Returns:
+            A value for the total synaptic current, used by the post-synaptic cell
+        """
+        rho = self.COND_GABA*self.r_gate
+        wij = self.syn_weight
+        return wij*rho*(v_pos - self.RE_PO_GABA)
 
 class PNRescaled:
     # Constants for PNs
@@ -2211,7 +2284,7 @@ class PNRescaled:
 
 
     def get_initial_condition(self):
-        return [-65.0, 0.05, 0.6, 0.32, 0.6, 0.6]
+        return [-65.0+ np.random.normal(0,0.6), 0.05+np.random.uniform()*0.01, 0.6+np.random.uniform()*0.01, 0.32+np.random.uniform()*0.01, 0.6+np.random.uniform()*0.01, 0.6+np.random.uniform()*0.01]
 
     def get_ind(self):
         return self.ii
@@ -2305,7 +2378,7 @@ class Synapse_PN_Rescaled:
         return [self.COND_NACH, self.RE_PO_NACH]
 
     def get_initial_condition(self):
-        return [0.0]
+        return [0.0+np.random.uniform()*0.01]
 
     def i_syn_ij(self, v_pos):
         """
@@ -2382,7 +2455,7 @@ class Synapse_nAch_PN:
         return [self.COND_NACH, self.RE_PO_NACH]
 
     def get_initial_condition(self):
-        return [0.0]
+        return [0.0+np.random.uniform()*0.01]
 
     def i_syn_ij(self,v_pos):
         """

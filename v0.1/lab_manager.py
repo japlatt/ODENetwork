@@ -275,21 +275,26 @@ Args:
         The output of integration.
     net:
         The network structure
-    layer_pn:
-        The layer that you want to do the averaging over
+    pn_inds:
+        The integration indices of projection neurons
+    transpose (optional) default = False:
+        An option to take the transpose of data. In order to extract data using
+        data[pn_inds], the data must be transposed from the output of lm.run().
+        transpose = False means that the transpose has already been taken and
+        does not need to be taken now.
     smooth (optional) default=False:
         An option to smooth the local field potential. Useful to see qualitative
         properties in small networks.
 """
-def plot_LFP(time_sampled_range, data, net, layer_pn = 1, smooth=False):
+def plot_LFP(time_sampled_range, data, net, pn_inds,transpose=False, smooth=False):
     t = time_sampled_range
     fig = plt.figure(figsize = (8,5))
     plt.title('Local Field Potential')
     plt.ylabel('LFP (mV)')
     plt.xlabel('time (ms)')
-    inds = np.array([n.ii for n in net.layers[layer_pn].nodes()])
-    sol = np.transpose(data)
-    lfp = np.mean(sol[inds],axis=0)
+    if transpose:
+        data = np.transpose(data)
+    lfp = np.mean(data[pn_inds],axis=0)
     if smooth:
         lfp = ewma_pd(t,lfp)
 
