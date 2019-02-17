@@ -770,8 +770,8 @@ class StdpSynapse2:
         self.ca = y(i+4)
         self.p0 = y(i+5)
         self.p1 = y(i+6)
-        self.P = y(i+8)
-        self.D = y(i+9)
+        self.P = y(i+7)
+        self.D = y(i+8)
 
     def get_gating_dynamics(self, time_const, v_pre, gating_var, control_para):
         return (1./time_const)*((step(v_pre)-gating_var)/(control_para-step(v_pre)))
@@ -840,6 +840,379 @@ class StdpSynapse2:
 
     def get_initial_condition(self):
         return [0.5, 0.5, 0.5, 0.5, 1.]
+
+class SynapseWithDendrite:
+    """
+    A stdp plastic synaspe
+    with dynamics of both NMDA and AMPA receptors
+
+    paramters taken from Abarbanel, Henry DI, et al.
+    "Synaptic plasticity with discrete state synapses."
+    Physical Review E 72.3 (2005): 031914.
+
+    Different from 1 by implementing master equation
+    form for updating weight parameters.
+    """
+    # Parameters:
+    # Capacitance
+    CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
+    # Conductances
+    COND_LEAK = 0.813 # Max. leak conductance, unit: mScm^-2
+    COND_NA = 215 # Max. Na conductance, unit: mScm^-2
+    COND_K = 43 # Max. K conductance, unit: mScm^-2
+    COND_CA = 1e-6 # Max. Ca conductance, unit: mScm^-2
+    # Nernst/reversal potentials
+    RE_PO_LEAK = -74 # Leak Nernst potential, unit: mV
+    RE_PO_NA = 50 # Na Nernst potential, unit: mV
+    RE_PO_K = -95 # K Nernst potential, unit: mV
+    #RE_PO_CA = 140 # K Nernst potential, unit: mV
+    # Half potentials of gating variables
+    HF_PO_M = -40 # m half potential, unit: mV
+    HF_PO_H = -60 # h half potential, unit: mV
+    HF_PO_N = -55 # n half potential, unit: mV
+    HF_PO_A = -20#-70 # a half potential, unit: mV
+    HF_PO_B = -25 #-65 # b half potential, unit: mV
+    # Voltage response width (sigma)
+    V_REW_M = 16 # m voltage response width, unit: mV
+    V_REW_H = -16 # m voltage response width, unit: mV
+    V_REW_N = 25 # m voltage response width, unit: mV
+    V_REW_A = 13 #10 # m voltage response width, unit: mV
+    V_REW_B = -24#-10 # m voltage response width, unit: mV
+    # time constants
+    TAU_0_M = 0.1 # unit ms
+    TAU_1_M = 0.4
+    TAU_0_H = 1.
+    TAU_1_H = 7.
+    TAU_0_N = 1.
+    TAU_1_N = 5.
+    TAU_0_A = 0.1
+    TAU_1_A = 0.2
+    TAU_0_B = 1.
+    TAU_1_B = 5.
+    #ghk
+    F = 96485
+    R = 8.314
+    T = 298
+    # parameters for synaptic gating variables
+    PROP_FAST_NMDA = 0.81
+    TAU_NMDA_FAST = 67.5
+    PARA_NMDA_FAST = 70./67.5
+    TAU_NMDA_SLOW = 245.
+    PARA_NMDA_SLOW = 250./245.
+    TAU_AMPA = 1.4
+    PARA_AMPA = 1.5/1.4
+
+    # reversal potential for excititory synapse
+    RE_PO_EX = 0.
+
+    # related conductances
+    COND_NMDA = 0.05
+    # COND_AMPA = 1.75
+    # conductance from soma to dendrite
+    COND_SOMA_DEND = 1.
+    INMDA_TO_CA = 0.15/0.05
+    # IAMPA_TO_CA = 1.5e-5/1.75
+    ICA_TO_CA = 3.5/0.1
+    # G_NMDA = 0.05
+    # G_AMPA = 1.75
+    # G_C = 1.0e-6
+    # G_NC = 0.15
+    # G_AC = 1.5e-5
+    # G_CC = 3.5e-5
+
+    #bounds on synaptic weight
+    G0 = 0.
+    G1 = 0.5
+    G2 = 1.
+
+    #master equation transitions
+    A = 1.0
+    B = 1.0
+
+    #magnesium concentration
+    MG = 1.
+    #calcium
+    TAU_CA = 30.
+    CA_EQM = 1.
+
+    # Dimension
+    DIM = 15
+
+
+    def __init__(self, initial_cond = 3.5):
+        # integration index
+        self.ii = None
+        # membrane potential and gating variables of dendrite
+        self.v_mem = None
+        self.m_gate = None
+        self.n_gate = None
+        self.h_gate = None
+        self.a_gate = None
+        self.b_gate = None
+        # Plasticity: changable maximum conductance of AMPA receptor
+        self.stdp_weight = None
+        # gating variables of synaptic currents
+        self.nmda_gate_fast = None
+        self.nmda_gate_slow = None
+        self.ampa_gate = None
+        # post-synaptic calcium concentration
+        self.ca = None
+        # initial AMPA conductances before stdp learning
+        self.initial_cond = initial_cond
+        # variables of master equation
+        self.p0 = None
+        self.p1 = None
+        self.P = None
+        self.D = None
+
+    def set_integration_index(self, i):
+        #DIM = 15
+        self.ii = i
+        self.v_mem = y(i)
+        self.m_gate = y(i+1)
+        self.n_gate = y(i+2)
+        self.h_gate = y(i+3)
+        self.a_gate = y(i+4)
+        self.b_gate = y(i+5)
+        self.stdp_weight = y(i+6)
+        self.nmda_gate_fast = y(i+7)
+        self.nmda_gate_slow = y(i+8)
+        self.ampa_gate = y(i+9)
+        self.ca = y(i+10)
+        self.p0 = y(i+11)
+        self.p1 = y(i+12)
+        self.P = y(i+13)
+        self.D = y(i+14)
+
+    def ghk(self, Vm, ca):
+        return -Vm*(ca - 15000*sym_backend.exp(-2*Vm*self.F/self.R*self.T))/(1 - sym_backend.exp(-2*Vm*self.F/self.R*self.T))
+
+    def x_eqm(self, Vm, V_0, sigma_x):
+        return sigmoid(2*(Vm - V_0)/sigma_x)
+
+    def tau_x(self, Vm, V_0, sigma_x, tau_x_0, tau_x_1):
+        return tau_x_0 + tau_x_1*(1-(sym_backend.tanh((Vm - V_0)/sigma_x))**2)
+
+    def i_leak(self, Vm):
+        return -self.COND_LEAK*(Vm - self.RE_PO_LEAK)
+
+    def i_na(self, Vm, m, h):
+        return -self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
+
+    def i_k(self, Vm, n):
+        return -self.COND_K*n**4*(Vm - self.RE_PO_K)
+
+    def i_ca(self, Vm, a, b):
+        return self.COND_CA*self.ghk(Vm,self.ca)*a**2*b
+
+    def get_gating_dynamics(self, time_const, v_pre, gating_var, control_para):
+        return (1./time_const)*((step(v_pre)-gating_var)/(control_para-step(v_pre)))
+
+    def get_nmda_current(self, v):
+        nmda_gate = self.PROP_FAST_NMDA*self.nmda_gate_fast+(1-self.PROP_FAST_NMDA)*self.nmda_gate_slow
+        magnesium_control = 1./(1.+0.288*self.MG*sym_backend.exp(-0.062*v))
+        return -self.COND_NMDA*nmda_gate*magnesium_control*(v-self.RE_PO_EX)
+
+    def get_ampa_current(self, v):
+        return -self.initial_cond*self.stdp_weight*self.ampa_gate*(v-self.RE_PO_EX)
+
+    def i_syn(self, v):
+        return self.get_nmda_current(v) + self.get_ampa_current(v)
+
+    def gamma01(self, P, D):
+        return P*D**4
+    def gamma10(self, P, D):
+        return D*P**4
+
+    def Fp(self, x):
+        return x**10.5/(6.7**10.5+x**10.5)
+
+    def Fd(self, x):
+        return 1.25*x**4.75/(13.5**4.75+x**4.75)
+
+    def dydt(self, pre_neuron, pos_neuron):
+        v_pre = pre_neuron.v_mem
+        v = self.v_mem
+        m = self.m_gate
+        n = self.n_gate
+        h = self.h_gate
+        a = self.a_gate
+        b = self.b_gate
+        i_base = self.i_leak(v) + self.i_na(v,m,h) + self.i_k(v,n) + self.i_ca(v,a,b)
+
+        i_nmda = self.get_nmda_current(v)
+        # i_ampa = self.get_ampa_current(v)
+
+        i_sd = self.COND_SOMA_DEND*(pos_neuron.v_mem - v)
+
+        ca_nmda = self.INMDA_TO_CA*i_nmda
+        #ca_ampa = self.IAMPA_TO_CA*i_ampa
+        ca_vgcc = self.ICA_TO_CA*self.i_ca(v,a,b)
+
+        f = self.gamma01(self.P, self.D)
+        g = self.gamma10(self.P, self.D)
+
+        dca = self.ca - self.CA_EQM
+
+        p2 = 1 - self.p0 - self.p1
+
+        # membrane potential and gating variables of dendrite
+        yield 1/self.CAP_MEM*(i_base + self.i_syn(v) + i_sd)
+        yield 1/self.tau_x(
+            v, self.HF_PO_M, self.V_REW_M, self.TAU_0_M, self.TAU_1_M
+            )*(self.x_eqm(v, self.HF_PO_M, self.V_REW_M) - m)
+        yield 1/self.tau_x(
+            v, self.HF_PO_N, self.V_REW_N, self.TAU_0_N, self.TAU_1_N
+            )*(self.x_eqm(v, self.HF_PO_N, self.V_REW_N) - n)
+        yield 1/self.tau_x(
+            v, self.HF_PO_H, self.V_REW_H, self.TAU_0_H, self.TAU_1_H
+            )*(self.x_eqm(v, self.HF_PO_H, self.V_REW_H) - h)
+        yield 1/self.tau_x(
+            v, self.HF_PO_A, self.V_REW_A, self.TAU_0_A, self.TAU_1_A
+            )*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
+        yield 1/self.tau_x(
+            v, self.HF_PO_B, self.V_REW_B, self.TAU_0_B, self.TAU_1_B
+            )*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
+        #weight
+        yield self.G0*self.p0+self.G1*self.p1+self.G2*p2
+        #nmda gate fast
+        yield self.get_gating_dynamics(self.TAU_NMDA_FAST, v_pre, self.nmda_gate_fast, self.PARA_NMDA_FAST)
+        #nmda gate slow
+        yield self.get_gating_dynamics(self.TAU_NMDA_SLOW, v_pre, self.nmda_gate_slow, self.PARA_NMDA_SLOW)
+        #ampa gate
+        yield self.get_gating_dynamics(self.TAU_AMPA, v_pre, self.ampa_gate, self.PARA_AMPA)
+        #This is the calcium concentration of the post-synaptic cell, ca_ampa is ignored
+        yield ca_nmda + ca_vgcc - dca/self.TAU_CA
+        #p0
+        yield -f*self.p0 + g*self.p1
+        #p1
+        yield f*self.p0 - g*self.p1 + self.A*f*p2 - self.B*f*self.p1
+        #P
+        yield self.Fp(dca)*(1-self.P) - self.P/10.
+        #D
+        yield self.Fd(dca)*(1-self.D) - self.D/30.
+
+    def get_initial_condition(self):
+        #DIM = 15
+        return [-73, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+
+class Soma:
+    # Parameters:
+    # Capacitance
+    CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
+    # Conductances
+    COND_LEAK = 0.813 # Max. leak conductance, unit: mScm^-2
+    COND_NA = 215 # Max. Na conductance, unit: mScm^-2
+    COND_K = 43 # Max. K conductance, unit: mScm^-2
+    # Nernst/reversal potentials
+    RE_PO_LEAK = -64 # Leak Nernst potential, unit: mV
+    RE_PO_NA = 50 # Na Nernst potential, unit: mV
+    RE_PO_K = -95 # K Nernst potential, unit: mV
+    # Half potentials of gating variables
+    HF_PO_M = -40 # m half potential, unit: mV
+    HF_PO_H = -60 # h half potential, unit: mV
+    HF_PO_N = -55 # n half potential, unit: mV
+    # Voltage response width (sigma)
+    V_REW_M = 16 # m voltage response width, unit: mV
+    V_REW_H = -16 # m voltage response width, unit: mV
+    V_REW_N = 25 # m voltage response width, unit: mV
+    # time constants
+    TAU_0_M = 0.1 # unit ms
+    TAU_1_M = 0.4
+    TAU_0_H = 1.
+    TAU_1_H = 7.
+    TAU_0_N = 1.
+    TAU_1_N = 5.
+
+    COND_DEND_SOMA = 3.5
+
+    # Dimension
+    DIM = 4
+    def __init__(self,para=None):
+        """
+        Put all the internal variables and instance specific constants here
+        Examples of varibales include Vm, gating variables, calcium ...etc
+        Constants can be various conductances, which can vary across
+        instances.
+        Args:
+            para: list of instance specific parameters
+            i_inj: injected current
+        """
+        self.i_inj = 0 # injected currents
+        self.ii = None # integration index
+        self.ni = None # neruon index
+        self.v_mem = None #y(i) # membrane potential
+        self.m_gate = None #y(i+1)
+        self.n_gate = None #y(i+2)
+        self.h_gate = None #y(i+3)
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i # integration index
+        self.v_mem = y(i) # membrane potential
+        self.m_gate = y(i+1)
+        self.n_gate = y(i+2)
+        self.h_gate = y(i+3)
+
+    def set_neuron_index(self, ni):
+        self.ni = ni
+
+    def dydt(self, pre_synapses, pre_neurons):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this neuron
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this neuron
+        """
+        # define how neurons are coupled here
+        v = self.v_mem
+        m = self.m_gate
+        n = self.n_gate
+        h = self.h_gate
+        i_inj = self.i_inj
+
+        i_ds = sum(self.COND_DEND_SOMA*(synapse.v_mem - v)
+            for (i,synapse) in enumerate(pre_synapses))
+
+        i_base = self.i_leak(v) + self.i_na(v,m,h) + self.i_k(v,n)
+
+        yield 1/self.CAP_MEM*(i_base + i_ds + i_inj)
+        yield 1/self.tau_x(
+            v, self.HF_PO_M, self.V_REW_M, self.TAU_0_M, self.TAU_1_M
+            )*(self.x_eqm(v, self.HF_PO_M, self.V_REW_M) - m)
+        yield 1/self.tau_x(
+            v, self.HF_PO_N, self.V_REW_N, self.TAU_0_N, self.TAU_1_N
+            )*(self.x_eqm(v, self.HF_PO_N, self.V_REW_N) - n)
+        yield 1/self.tau_x(
+            v, self.HF_PO_H, self.V_REW_H, self.TAU_0_H, self.TAU_1_H
+            )*(self.x_eqm(v, self.HF_PO_H, self.V_REW_H) - h)
+
+    def get_initial_condition(self):
+        return [-73.,0.5,0.5,0.5]
+
+    # some helper functions for dydt
+    def x_eqm(self, Vm, V_0, sigma_x):
+        return sigmoid(2*(Vm - V_0)/sigma_x)
+
+    def tau_x(self, Vm, V_0, sigma_x, tau_x_0, tau_x_1):
+        return tau_x_0 + tau_x_1*(1-(sym_backend.tanh((Vm - V_0)/sigma_x))**2)
+
+    def i_leak(self, Vm):
+        return self.COND_LEAK*(Vm - self.RE_PO_LEAK)
+
+    def i_na(self, Vm, m, h):
+        return self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
+
+    def i_k(self, Vm, n):
+        return self.COND_K*n**4*(Vm - self.RE_PO_K)
 
 
 class HHNeuronWithCaJL:
