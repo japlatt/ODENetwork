@@ -770,8 +770,8 @@ class StdpSynapse2:
         self.ca = y(i+4)
         self.p0 = y(i+5)
         self.p1 = y(i+6)
-        self.P = y(i+8)
-        self.D = y(i+9)
+        self.P = y(i+7)
+        self.D = y(i+8)
 
     def get_gating_dynamics(self, time_const, v_pre, gating_var, control_para):
         return (1./time_const)*((step(v_pre)-gating_var)/(control_para-step(v_pre)))
@@ -812,7 +812,7 @@ class StdpSynapse2:
         f = self.gamma01(self.P, self.D)
         g = self.gamma10(self.P, self.D)
 
-        dca = self.CA_EQM-self.ca
+        dca = (self.CA_EQM-self.ca)/self.CA_EQM
 
 
         p2 = 1-self.p0-self.p1
