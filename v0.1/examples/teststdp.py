@@ -29,10 +29,10 @@ reload(lm)
 neuron_nums = [1,1] # number of neurons in each layer
 NUM_NEURON = np.sum(neuron_nums)
 NUM_SYN = np.prod(neuron_nums)
-neuron_type = nm.HHNeuronWithCaJL
+neuron_type = nm.Soma
 NUM_DIM_NEURON = neuron_type.DIM
 ##### change your synapse class here
-synapse_type = nm.StdpSynapse
+synapse_type = nm.SynapseWithDendrite
 NUM_DIM_SYN = synapse_type.DIM
 
 net = ns.get_multilayer_fc(neuron_type, synapse_type, neuron_nums)
@@ -57,18 +57,18 @@ def get_data(delta_time):
 
 # step 5: plot
 
-delta_time = 20.
+delta_time = 15.
 data = get_data(delta_time)
 #dimension index of calcium and stdp weight
-ca_index = NUM_DIM_SYN-1
-w_index = 0
+ca_index = 10
+w_index = 6
 
 fig, axes = plt.subplots(2, 1, sharex = 'col', figsize = (8,5))
 #axes = axes.reshape(2, 1)
 fig.suptitle(r'$\Delta t =  {}(ms)$'.format(delta_time), fontsize = 22)
 axes[0].plot(time_sampled_range, data[:,NUM_NEURON*NUM_DIM_NEURON + 0*NUM_DIM_SYN + ca_index], color="blue", label="Ca", linewidth = 2)
-axes[0].axhline(nm.StdpSynapse.THETA_D, color="orange", label=r"$\theta_d$", linewidth = 2)
-axes[0].axhline(nm.StdpSynapse.THETA_P, color="green", label=r"$\theta_p$", linewidth = 2)
+#axes[0].axhline(nm.StdpSynapse.THETA_D, color="orange", label=r"$\theta_d$", linewidth = 2)
+#axes[0].axhline(nm.StdpSynapse.THETA_P, color="green", label=r"$\theta_p$", linewidth = 2)
 axes[0].legend(loc = 'best', frameon = False)
 axes[1].plot(time_sampled_range, data[:,NUM_NEURON*NUM_DIM_NEURON + 0*NUM_DIM_SYN + w_index], label="Connection Weight", linewidth = 2)
 axes[1].legend(loc = 'best', frameon = False)
