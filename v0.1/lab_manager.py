@@ -62,8 +62,10 @@ def set_up_lab(net):
             for pre_neuron in net.predecessors(pos_neuron):
                 synapse = net[pre_neuron][pos_neuron]["synapse"]
                 yield from synapse.dydt(pre_neuron, pos_neuron)
-    for dydt in f():
-        print(dydt)
+    #for debug use only
+    #for dydt in f():
+    #    print(dydt)
+    #end debug
     # Impose initial conditions
     initial_conditions = []
     #neurons = net.vertexs # the list of all neruons

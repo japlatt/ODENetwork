@@ -68,7 +68,6 @@ class StaticSynapse:
         pass
     def get_initial_condition():
         pass
-    #
 
 class PlasticNMDASynapse:
     """
@@ -232,8 +231,6 @@ class PlasticNMDASynapseWithCa:
         #current set such that weight = 0.5??
         rho = self.rho_gate*self.COND_CA_SYN
         return rho*0.5*(v_pos - self.RE_PO_CA)
-
-
 
 class HHNeuronWithCa:
     """
@@ -857,12 +854,12 @@ class SynapseWithDendrite:
     # Capacitance
     CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
     # Conductances
-    COND_LEAK = 0.3 # Max. leak conductance, unit: mScm^-2
-    COND_NA = 120 # Max. Na conductance, unit: mScm^-2
-    COND_K = 36 # Max. K conductance, unit: mScm^-2
+    COND_LEAK = 0.813 # Max. leak conductance, unit: mScm^-2
+    COND_NA = 215 # Max. Na conductance, unit: mScm^-2
+    COND_K = 43 # Max. K conductance, unit: mScm^-2
     COND_CA = 1e-6 # Max. Ca conductance, unit: mScm^-2
     # Nernst/reversal potentials
-    RE_PO_LEAK = -70 # Leak Nernst potential, unit: mV
+    RE_PO_LEAK = -64 # Leak Nernst potential, unit: mV
     RE_PO_NA = 50 # Na Nernst potential, unit: mV
     RE_PO_K = -95 # K Nernst potential, unit: mV
     #RE_PO_CA = 140 # K Nernst potential, unit: mV
@@ -870,14 +867,14 @@ class SynapseWithDendrite:
     HF_PO_M = -40 # m half potential, unit: mV
     HF_PO_H = -60 # h half potential, unit: mV
     HF_PO_N = -55 # n half potential, unit: mV
-    HF_PO_A = -20#-70 # a half potential, unit: mV
-    HF_PO_B = -25 #-65 # b half potential, unit: mV
+    HF_PO_A = -52#-70 # a half potential, unit: mV
+    HF_PO_B = -72 #-65 # b half potential, unit: mV
     # Voltage response width (sigma)
     V_REW_M = 16 # m voltage response width, unit: mV
     V_REW_H = -16 # m voltage response width, unit: mV
     V_REW_N = 25 # m voltage response width, unit: mV
-    V_REW_A = 13 #10 # m voltage response width, unit: mV
-    V_REW_B = -24#-10 # m voltage response width, unit: mV
+    V_REW_A = 12.4 #10 # m voltage response width, unit: mV
+    V_REW_B = -8#-10 # m voltage response width, unit: mV
     # time constants
     TAU_0_M = 0.1 # unit ms
     TAU_1_M = 0.4
@@ -885,10 +882,10 @@ class SynapseWithDendrite:
     TAU_1_H = 7.
     TAU_0_N = 1.
     TAU_1_N = 5.
-    TAU_0_A = 0.1
-    TAU_1_A = 0.2
-    TAU_0_B = 1.
-    TAU_1_B = 5.
+    # TAU_0_A = 0.1
+    # TAU_1_A = 0.2
+    # TAU_0_B = 1.
+    # TAU_1_B = 5.
     #ghk
     F = 96.485
     R = 8.314
@@ -993,6 +990,15 @@ class SynapseWithDendrite:
     def tau_x(self, Vm, V_0, sigma_x, tau_x_0, tau_x_1):
         return tau_x_0 + tau_x_1*(1-(sym_backend.tanh((Vm - V_0)/sigma_x))**2)
 
+    def tau_a(self, Vm):
+        return 0.204 + 0.333/(sym_backend.exp(-(131+Vm)/16.7)+sym_backend.exp((15+Vm)/18.2))
+
+    def tau_b(self, Vm):
+        if Vm <= -81:
+            return 0.333*(sym_backend.exp((466+Vm)/66.6))
+        else:
+            return 9.32 + 0.333*(sym_backend.exp(-(21+Vm)/10.5))
+
     def i_leak(self, Vm):
         return -self.COND_LEAK*(Vm - self.RE_PO_LEAK)
 
@@ -1024,6 +1030,7 @@ class SynapseWithDendrite:
 
     def gamma01(self, P, D):
         return P*D**4
+
     def gamma10(self, P, D):
         return D*P**4
 
@@ -1071,12 +1078,14 @@ class SynapseWithDendrite:
         yield 1/self.tau_x(
             v, self.HF_PO_H, self.V_REW_H, self.TAU_0_H, self.TAU_1_H
             )*(self.x_eqm(v, self.HF_PO_H, self.V_REW_H) - h)
-        yield 1/self.tau_x(
-            v, self.HF_PO_A, self.V_REW_A, self.TAU_0_A, self.TAU_1_A
-            )*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
-        yield 1/self.tau_x(
-            v, self.HF_PO_B, self.V_REW_B, self.TAU_0_B, self.TAU_1_B
-            )*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
+        # yield 1/self.tau_x(
+        #     v, self.HF_PO_A, self.V_REW_A, self.TAU_0_A, self.TAU_1_A
+        #     )*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
+        # yield 1/self.tau_x(
+        #     v, self.HF_PO_B, self.V_REW_B, self.TAU_0_B, self.TAU_1_B
+        #     )*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
+        yield 1/self.tau_a(v)*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
+        yield 1/self.tau_b(v)*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
         #weight
         yield self.G0*self.p0+self.G1*self.p1+self.G2*p2
         #nmda gate fast
@@ -1099,18 +1108,18 @@ class SynapseWithDendrite:
 
     def get_initial_condition(self):
         #DIM = 15
-        return [-73, 0., 0., 0., 0., 0., 0.5, 0., 0., 0., 0.5, 0.5, 0.5, 0.5, 0.5]
+        return [-73, 0.2, 0.8, 0.2, 0.2, 0.8, 0.5, 0.2, 0.2, 0.2, 0.5, 0.5, 0.5, 0.5, 0.5]
 
 class Soma:
     # Parameters:
     # Capacitance
     CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
     # Conductances
-    COND_LEAK = 0.3 # Max. leak conductance, unit: mScm^-2
-    COND_NA = 120 # Max. Na conductance, unit: mScm^-2
-    COND_K = 36 # Max. K conductance, unit: mScm^-2
+    COND_LEAK = 0.813 # Max. leak conductance, unit: mScm^-2
+    COND_NA = 215 # Max. Na conductance, unit: mScm^-2
+    COND_K = 43 # Max. K conductance, unit: mScm^-2
     # Nernst/reversal potentials
-    RE_PO_LEAK = -70 # Leak Nernst potential, unit: mV
+    RE_PO_LEAK = -64 # Leak Nernst potential, unit: mV
     RE_PO_NA = 50 # Na Nernst potential, unit: mV
     RE_PO_K = -95 # K Nernst potential, unit: mV
     # Half potentials of gating variables
