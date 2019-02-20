@@ -857,12 +857,12 @@ class SynapseWithDendrite:
     # Capacitance
     CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
     # Conductances
-    COND_LEAK = 0.813 # Max. leak conductance, unit: mScm^-2
-    COND_NA = 215 # Max. Na conductance, unit: mScm^-2
-    COND_K = 43 # Max. K conductance, unit: mScm^-2
+    COND_LEAK = 0.3 # Max. leak conductance, unit: mScm^-2
+    COND_NA = 120 # Max. Na conductance, unit: mScm^-2
+    COND_K = 36 # Max. K conductance, unit: mScm^-2
     COND_CA = 1e-6 # Max. Ca conductance, unit: mScm^-2
     # Nernst/reversal potentials
-    RE_PO_LEAK = -74 # Leak Nernst potential, unit: mV
+    RE_PO_LEAK = -70 # Leak Nernst potential, unit: mV
     RE_PO_NA = 50 # Na Nernst potential, unit: mV
     RE_PO_K = -95 # K Nernst potential, unit: mV
     #RE_PO_CA = 140 # K Nernst potential, unit: mV
@@ -890,7 +890,7 @@ class SynapseWithDendrite:
     TAU_0_B = 1.
     TAU_1_B = 5.
     #ghk
-    F = 96485
+    F = 96.485
     R = 8.314
     T = 298
     # parameters for synaptic gating variables
@@ -985,7 +985,7 @@ class SynapseWithDendrite:
         self.D = y(i+14)
 
     def ghk(self, Vm, ca):
-        return -Vm*(ca - 15000*sym_backend.exp(-2*Vm*self.F/self.R*self.T))/(1 - sym_backend.exp(-2*Vm*self.F/self.R*self.T))
+        return -Vm*(ca - 15000*sym_backend.exp(-2*Vm*self.F/(self.R*self.T)))/(1 - sym_backend.exp(-2*Vm*self.F/(self.R*self.T)))
 
     def x_eqm(self, Vm, V_0, sigma_x):
         return sigmoid(2*(Vm - V_0)/sigma_x)
@@ -1101,11 +1101,11 @@ class Soma:
     # Capacitance
     CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
     # Conductances
-    COND_LEAK = 0.813 # Max. leak conductance, unit: mScm^-2
-    COND_NA = 215 # Max. Na conductance, unit: mScm^-2
-    COND_K = 43 # Max. K conductance, unit: mScm^-2
+    COND_LEAK = 0.3 # Max. leak conductance, unit: mScm^-2
+    COND_NA = 120 # Max. Na conductance, unit: mScm^-2
+    COND_K = 36 # Max. K conductance, unit: mScm^-2
     # Nernst/reversal potentials
-    RE_PO_LEAK = -64 # Leak Nernst potential, unit: mV
+    RE_PO_LEAK = -70 # Leak Nernst potential, unit: mV
     RE_PO_NA = 50 # Na Nernst potential, unit: mV
     RE_PO_K = -95 # K Nernst potential, unit: mV
     # Half potentials of gating variables
@@ -1206,13 +1206,13 @@ class Soma:
         return tau_x_0 + tau_x_1*(1-(sym_backend.tanh((Vm - V_0)/sigma_x))**2)
 
     def i_leak(self, Vm):
-        return self.COND_LEAK*(Vm - self.RE_PO_LEAK)
+        return -self.COND_LEAK*(Vm - self.RE_PO_LEAK)
 
     def i_na(self, Vm, m, h):
-        return self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
+        return -self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
 
     def i_k(self, Vm, n):
-        return self.COND_K*n**4*(Vm - self.RE_PO_K)
+        return -self.COND_K*n**4*(Vm - self.RE_PO_K)
 
 
 class HHNeuronWithCaJL:

@@ -16,7 +16,7 @@ def sigmoid(x):
     return 1./(1.+ sym_backend.exp(-x))
 
 def heaviside(x):
-    K = 1e3 # some big number
+    K = 10 # some big number
     return sigmoid(K*x)
 
 def unit_pulse(t,t0,w):

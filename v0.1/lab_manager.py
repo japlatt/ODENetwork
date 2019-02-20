@@ -62,6 +62,8 @@ def set_up_lab(net):
             for pre_neuron in net.predecessors(pos_neuron):
                 synapse = net[pre_neuron][pos_neuron]["synapse"]
                 yield from synapse.dydt(pre_neuron, pos_neuron)
+    for dydt in f():
+        print(dydt)
     # Impose initial conditions
     initial_conditions = []
     #neurons = net.vertexs # the list of all neruons
@@ -239,8 +241,8 @@ def show_all_synaspe_onto_layer(time_sampled_range, data, net, layer_idx):
         pre_neurons = list(net.predecessors(pos_neuron))
         for pre_neuron in pre_neurons:
             synapse = net[pre_neuron][pos_neuron]["synapse"]
-            THETA_D = synapse.THETA_D
-            THETA_P = synapse.THETA_P
+            #THETA_D = synapse.THETA_D
+            #THETA_P = synapse.THETA_P
             ii = synapse.ii
             fig, axes = plt.subplots(3,1,sharex=True)
             red_syn_weight = data[:,ii]
@@ -250,8 +252,8 @@ def show_all_synaspe_onto_layer(time_sampled_range, data, net, layer_idx):
             axes[1].plot(time_sampled_range, sigmoid(red_syn_weight), label="synaptic weight")
             axes[1].legend()
             axes[2].plot(time_sampled_range, ca, label="Ca")
-            axes[2].axhline(THETA_D, color="orange", label="theta_d")
-            axes[2].axhline(THETA_P, color="green", label="theta_p")
+            #axes[2].axhline(THETA_D, color="orange", label="theta_d")
+            #axes[2].axhline(THETA_P, color="green", label="theta_p")
             axes[2].legend()
             plt.suptitle("w_{}{}".format(pre_neuron.ni, pos_neuron.ni))
             plt.show()
