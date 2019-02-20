@@ -1005,6 +1005,9 @@ class SynapseWithDendrite:
     def i_ca(self, Vm, a, b):
         return self.COND_CA*self.ghk(Vm,self.ca)*a**2*b
 
+    # def i_ca(self, Vm, a, b):
+    #     return -self.COND_CA*a**2*b*(Vm - 140)
+
     def get_gating_dynamics(self, time_const, v_pre, gating_var, control_para):
         return (1./time_const)*((step(v_pre)-gating_var)/(control_para-step(v_pre)))
 
@@ -1025,10 +1028,10 @@ class SynapseWithDendrite:
         return D*P**4
 
     def Fp(self, x):
-        return x**10.5/(6.7**10.5+x**10.5)
+        return x**11/(6.7**11+x**11)
 
     def Fd(self, x):
-        return 1.25*x**4.75/(13.5**4.75+x**4.75)
+        return 1.25*x**5/(13.5**5+x**5)
 
     def dydt(self, pre_neuron, pos_neuron):
         v_pre = pre_neuron.v_mem
@@ -1052,6 +1055,7 @@ class SynapseWithDendrite:
         f = self.gamma01(self.P, self.D)
         g = self.gamma10(self.P, self.D)
 
+        #dca = 1
         dca = self.ca - self.CA_EQM
 
         p2 = 1 - self.p0 - self.p1
@@ -1082,6 +1086,7 @@ class SynapseWithDendrite:
         #ampa gate
         yield self.get_gating_dynamics(self.TAU_AMPA, v_pre, self.ampa_gate, self.PARA_AMPA)
         #This is the calcium concentration of the post-synaptic cell, ca_ampa is ignored
+        # yield ca_nmda + ca_vgcc - dca/self.TAU_CA
         yield ca_nmda + ca_vgcc - dca/self.TAU_CA
         #p0
         yield -f*self.p0 + g*self.p1
@@ -1094,7 +1099,7 @@ class SynapseWithDendrite:
 
     def get_initial_condition(self):
         #DIM = 15
-        return [-73, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+        return [-73, 0., 0., 0., 0., 0., 0.5, 0., 0., 0., 0.5, 0.5, 0.5, 0.5, 0.5]
 
 class Soma:
     # Parameters:
