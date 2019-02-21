@@ -68,7 +68,6 @@ class StaticSynapse:
         pass
     def get_initial_condition():
         pass
-    #
 
 class PlasticNMDASynapse:
     """
@@ -232,8 +231,6 @@ class PlasticNMDASynapseWithCa:
         #current set such that weight = 0.5??
         rho = self.rho_gate*self.COND_CA_SYN
         return rho*0.5*(v_pos - self.RE_PO_CA)
-
-
 
 class HHNeuronWithCa:
     """
@@ -862,7 +859,7 @@ class SynapseWithDendrite:
     COND_K = 43 # Max. K conductance, unit: mScm^-2
     COND_CA = 1e-6 # Max. Ca conductance, unit: mScm^-2
     # Nernst/reversal potentials
-    RE_PO_LEAK = -74 # Leak Nernst potential, unit: mV
+    RE_PO_LEAK = -64 # Leak Nernst potential, unit: mV
     RE_PO_NA = 50 # Na Nernst potential, unit: mV
     RE_PO_K = -95 # K Nernst potential, unit: mV
     #RE_PO_CA = 140 # K Nernst potential, unit: mV
@@ -870,14 +867,14 @@ class SynapseWithDendrite:
     HF_PO_M = -40 # m half potential, unit: mV
     HF_PO_H = -60 # h half potential, unit: mV
     HF_PO_N = -55 # n half potential, unit: mV
-    HF_PO_A = -20#-70 # a half potential, unit: mV
-    HF_PO_B = -25 #-65 # b half potential, unit: mV
+    HF_PO_A = -52#-70 # a half potential, unit: mV
+    HF_PO_B = -72 #-65 # b half potential, unit: mV
     # Voltage response width (sigma)
     V_REW_M = 16 # m voltage response width, unit: mV
     V_REW_H = -16 # m voltage response width, unit: mV
     V_REW_N = 25 # m voltage response width, unit: mV
-    V_REW_A = 13 #10 # m voltage response width, unit: mV
-    V_REW_B = -24#-10 # m voltage response width, unit: mV
+    V_REW_A = 12.4 #10 # m voltage response width, unit: mV
+    V_REW_B = -8#-10 # m voltage response width, unit: mV
     # time constants
     TAU_0_M = 0.1 # unit ms
     TAU_1_M = 0.4
@@ -885,12 +882,12 @@ class SynapseWithDendrite:
     TAU_1_H = 7.
     TAU_0_N = 1.
     TAU_1_N = 5.
-    TAU_0_A = 0.1
-    TAU_1_A = 0.2
-    TAU_0_B = 1.
-    TAU_1_B = 5.
+    # TAU_0_A = 0.1
+    # TAU_1_A = 0.2
+    # TAU_0_B = 1.
+    # TAU_1_B = 5.
     #ghk
-    F = 96485
+    F = 96.485
     R = 8.314
     T = 298
     # parameters for synaptic gating variables
@@ -985,13 +982,22 @@ class SynapseWithDendrite:
         self.D = y(i+14)
 
     def ghk(self, Vm, ca):
-        return -Vm*(ca - 15000*sym_backend.exp(-2*Vm*self.F/self.R*self.T))/(1 - sym_backend.exp(-2*Vm*self.F/self.R*self.T))
+        return -Vm*(ca - 15000*sym_backend.exp(-2*Vm*self.F/(self.R*self.T)))/(1 - sym_backend.exp(-2*Vm*self.F/(self.R*self.T)))
 
     def x_eqm(self, Vm, V_0, sigma_x):
         return sigmoid(2*(Vm - V_0)/sigma_x)
 
     def tau_x(self, Vm, V_0, sigma_x, tau_x_0, tau_x_1):
         return tau_x_0 + tau_x_1*(1-(sym_backend.tanh((Vm - V_0)/sigma_x))**2)
+
+    def tau_a(self, Vm):
+        return 0.204 + 0.333/(sym_backend.exp(-(131+Vm)/16.7)+sym_backend.exp((15+Vm)/18.2))
+
+    def tau_b(self, Vm):
+        if Vm <= -81:
+            return 0.333*(sym_backend.exp((466+Vm)/66.6))
+        else:
+            return 9.32 + 0.333*(sym_backend.exp(-(21+Vm)/10.5))
 
     def i_leak(self, Vm):
         return -self.COND_LEAK*(Vm - self.RE_PO_LEAK)
@@ -1004,6 +1010,9 @@ class SynapseWithDendrite:
 
     def i_ca(self, Vm, a, b):
         return self.COND_CA*self.ghk(Vm,self.ca)*a**2*b
+
+    # def i_ca(self, Vm, a, b):
+    #     return -self.COND_CA*a**2*b*(Vm - 140)
 
     def get_gating_dynamics(self, time_const, v_pre, gating_var, control_para):
         return (1./time_const)*((step(v_pre)-gating_var)/(control_para-step(v_pre)))
@@ -1021,14 +1030,15 @@ class SynapseWithDendrite:
 
     def gamma01(self, P, D):
         return P*D**4
+
     def gamma10(self, P, D):
         return D*P**4
 
     def Fp(self, x):
-        return x**10.5/(6.7**10.5+x**10.5)
+        return x**11/(6.7**11+x**11)
 
     def Fd(self, x):
-        return 1.25*x**4.75/(13.5**4.75+x**4.75)
+        return 1.25*x**5/(13.5**5+x**5)
 
     def dydt(self, pre_neuron, pos_neuron):
         v_pre = pre_neuron.v_mem
@@ -1052,6 +1062,7 @@ class SynapseWithDendrite:
         f = self.gamma01(self.P, self.D)
         g = self.gamma10(self.P, self.D)
 
+        #dca = 1
         dca = self.ca - self.CA_EQM
 
         p2 = 1 - self.p0 - self.p1
@@ -1067,12 +1078,14 @@ class SynapseWithDendrite:
         yield 1/self.tau_x(
             v, self.HF_PO_H, self.V_REW_H, self.TAU_0_H, self.TAU_1_H
             )*(self.x_eqm(v, self.HF_PO_H, self.V_REW_H) - h)
-        yield 1/self.tau_x(
-            v, self.HF_PO_A, self.V_REW_A, self.TAU_0_A, self.TAU_1_A
-            )*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
-        yield 1/self.tau_x(
-            v, self.HF_PO_B, self.V_REW_B, self.TAU_0_B, self.TAU_1_B
-            )*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
+        # yield 1/self.tau_x(
+        #     v, self.HF_PO_A, self.V_REW_A, self.TAU_0_A, self.TAU_1_A
+        #     )*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
+        # yield 1/self.tau_x(
+        #     v, self.HF_PO_B, self.V_REW_B, self.TAU_0_B, self.TAU_1_B
+        #     )*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
+        yield 1/self.tau_a(v)*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
+        yield 1/self.tau_b(v)*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
         #weight
         yield self.G0*self.p0+self.G1*self.p1+self.G2*p2
         #nmda gate fast
@@ -1082,6 +1095,7 @@ class SynapseWithDendrite:
         #ampa gate
         yield self.get_gating_dynamics(self.TAU_AMPA, v_pre, self.ampa_gate, self.PARA_AMPA)
         #This is the calcium concentration of the post-synaptic cell, ca_ampa is ignored
+        # yield ca_nmda + ca_vgcc - dca/self.TAU_CA
         yield ca_nmda + ca_vgcc - dca/self.TAU_CA
         #p0
         yield -f*self.p0 + g*self.p1
@@ -1094,7 +1108,7 @@ class SynapseWithDendrite:
 
     def get_initial_condition(self):
         #DIM = 15
-        return [-73, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+        return [-73, 0.2, 0.8, 0.2, 0.2, 0.8, 0.5, 0.2, 0.2, 0.2, 0.5, 0.5, 0.5, 0.5, 0.5]
 
 class Soma:
     # Parameters:
@@ -1206,13 +1220,13 @@ class Soma:
         return tau_x_0 + tau_x_1*(1-(sym_backend.tanh((Vm - V_0)/sigma_x))**2)
 
     def i_leak(self, Vm):
-        return self.COND_LEAK*(Vm - self.RE_PO_LEAK)
+        return -self.COND_LEAK*(Vm - self.RE_PO_LEAK)
 
     def i_na(self, Vm, m, h):
-        return self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
+        return -self.COND_NA*m**3*h*(Vm - self.RE_PO_NA)
 
     def i_k(self, Vm, n):
-        return self.COND_K*n**4*(Vm - self.RE_PO_K)
+        return -self.COND_K*n**4*(Vm - self.RE_PO_K)
 
 
 class HHNeuronWithCaJL:

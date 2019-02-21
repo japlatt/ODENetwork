@@ -24,6 +24,7 @@ from matplotlib import rc
 from importlib import reload
 reload(nm)
 reload(lm)
+reload(ex)
 
 # Step 1: Pick a network
 neuron_nums = [1,1] # number of neurons in each layer
@@ -36,16 +37,15 @@ synapse_type = nm.SynapseWithDendrite
 NUM_DIM_SYN = synapse_type.DIM
 
 net = ns.get_multilayer_fc(neuron_type, synapse_type, neuron_nums)
-total_time = 200.
+total_time = 500.
 time_sampled_range = np.arange(0., total_time, 0.1)
 
 def get_data(delta_time):
 
     # step 2: design an experiment
-    T0 = 50.
+    T0 = 250.
     TIME_DELAY = delta_time
     ex.delay_pulses_on_layer_0_and_1(net, t0s=[T0, T0+TIME_DELAY], i_max=50.)
-
     # step 3: ask our lab manager to set up the lab for the experiment
     f, initial_conditions, neuron_inds = lm.set_up_lab(net)
 
@@ -57,7 +57,7 @@ def get_data(delta_time):
 
 # step 5: plot
 
-delta_time = 15.
+delta_time = 50.
 data = get_data(delta_time)
 #dimension index of calcium and stdp weight
 ca_index = 10
@@ -92,4 +92,10 @@ plt.ylabel(r"$\Delta W$")
 plt.yticks([])
 plt.xlabel(r"$\Delta t$[ms]")
 plt.show()
-#plt.savefig("stdp.png",dpi=500)
+# plt.savefig("stdp.png",dpi=500)
+
+# for layer_idx in range(len(net.layers)):
+#     lm.show_all_neuron_in_layer(
+#         time_sampled_range, data, net, layer_idx)
+#     lm.show_all_synaspe_onto_layer(
+#         time_sampled_range, data, net, layer_idx)
