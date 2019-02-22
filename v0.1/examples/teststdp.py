@@ -57,20 +57,28 @@ def get_data(delta_time):
 
 # step 5: plot
 
-delta_time = 50.
+delta_time = 100.
 data = get_data(delta_time)
 #dimension index of calcium and stdp weight
-ca_index = 10
-w_index = 6
+ca_index = 9
+data_ca = data[:,NUM_NEURON*NUM_DIM_NEURON + ca_index]
+#w_index = 6
+p0_index = 10
+p1_index = 11
+data_p0 = data[:,NUM_NEURON*NUM_DIM_NEURON + p0_index]
+data_p1 = data[:,NUM_NEURON*NUM_DIM_NEURON + p1_index]
+data_p2 = 1 - data_p0 - data_p1
+data_w = synapse_type.G0*data_p0 + synapse_type.G1*data_p1 + synapse_type.G2*data_p2
+
 
 fig, axes = plt.subplots(2, 1, sharex = 'col', figsize = (8,5))
 #axes = axes.reshape(2, 1)
 fig.suptitle(r'$\Delta t =  {}(ms)$'.format(delta_time), fontsize = 22)
-axes[0].plot(time_sampled_range, data[:,NUM_NEURON*NUM_DIM_NEURON + 0*NUM_DIM_SYN + ca_index], color="blue", label="Ca", linewidth = 2)
+axes[0].plot(time_sampled_range, data_ca, color="blue", label="Ca", linewidth = 2)
 #axes[0].axhline(nm.StdpSynapse.THETA_D, color="orange", label=r"$\theta_d$", linewidth = 2)
 #axes[0].axhline(nm.StdpSynapse.THETA_P, color="green", label=r"$\theta_p$", linewidth = 2)
 axes[0].legend(loc = 'best', frameon = False)
-axes[1].plot(time_sampled_range, data[:,NUM_NEURON*NUM_DIM_NEURON + 0*NUM_DIM_SYN + w_index], label="Connection Weight", linewidth = 2)
+axes[1].plot(time_sampled_range, data_w, label="Connection Weight", linewidth = 2)
 axes[1].legend(loc = 'best', frameon = False)
 axes[1].set_xlabel("time [ms]")
 
@@ -79,17 +87,27 @@ plt.show()
 # stdp profile
 
 delta_time = 1.
-DT = np.linspace(-80,80,20)
+DT = np.linspace(-80,80,40)
 DW = np.zeros(len(DT))
 
 for (i,dt) in enumerate(DT):
     data = get_data(dt)
-    DW[i] = (data[-1,NUM_NEURON*NUM_DIM_NEURON + w_index] - data[0,NUM_NEURON*NUM_DIM_NEURON + w_index])
+    #dimension index of calcium and stdp weight
+    ca_index = 9
+    data_ca = data[:,NUM_NEURON*NUM_DIM_NEURON + ca_index]
+    #w_index = 6
+    p0_index = 10
+    p1_index = 11
+    data_p0 = data[:,NUM_NEURON*NUM_DIM_NEURON + p0_index]
+    data_p1 = data[:,NUM_NEURON*NUM_DIM_NEURON + p1_index]
+    data_p2 = 1 - data_p0 - data_p1
+    data_w = synapse_type.G0*data_p0 + synapse_type.G1*data_p1 + synapse_type.G2*data_p2
+    DW[i] = (data_w[-1] - data_w[0])
 
 plt.figure()
 plt.plot(DT,DW,marker=".",color="black")
 plt.ylabel(r"$\Delta W$")
-plt.yticks([])
+#plt.yticks([])
 plt.xlabel(r"$\Delta t$[ms]")
 plt.show()
 # plt.savefig("stdp.png",dpi=500)

@@ -851,6 +851,7 @@ class SynapseWithDendrite:
     form for updating weight parameters.
     """
     # Parameters:
+    reducing_factor = 0.15
     # Capacitance
     CAP_MEM = 1. # membrane capacitance, unit: uFcm^-2
     # Conductances
@@ -918,9 +919,9 @@ class SynapseWithDendrite:
     # G_CC = 3.5e-5
 
     #bounds on synaptic weight
-    G0 = 0.
-    G1 = 0.5
-    G2 = 1.
+    G0 = 2./3.
+    G1 = 2
+    G2 = 2
 
     #master equation transitions
     A = 1.0
@@ -933,7 +934,7 @@ class SynapseWithDendrite:
     CA_EQM = 1.
 
     # Dimension
-    DIM = 15
+    DIM = 14
 
 
     def __init__(self, initial_cond = 3.5):
@@ -971,15 +972,15 @@ class SynapseWithDendrite:
         self.h_gate = y(i+3)
         self.a_gate = y(i+4)
         self.b_gate = y(i+5)
-        self.stdp_weight = y(i+6)
-        self.nmda_gate_fast = y(i+7)
-        self.nmda_gate_slow = y(i+8)
-        self.ampa_gate = y(i+9)
-        self.ca = y(i+10)
-        self.p0 = y(i+11)
-        self.p1 = y(i+12)
-        self.P = y(i+13)
-        self.D = y(i+14)
+        #self.stdp_weight = y(i+6)
+        self.nmda_gate_fast = y(i+6)
+        self.nmda_gate_slow = y(i+7)
+        self.ampa_gate = y(i+8)
+        self.ca = y(i+9)
+        self.p0 = y(i+10)
+        self.p1 = y(i+11)
+        self.P = y(i+12)
+        self.D = y(i+13)
 
     def ghk(self, Vm, ca):
         return -Vm*(ca - 15000*sym_backend.exp(-2*Vm*self.F/(self.R*self.T)))/(1 - sym_backend.exp(-2*Vm*self.F/(self.R*self.T)))
@@ -1035,7 +1036,7 @@ class SynapseWithDendrite:
         return D*P**4
 
     def Fp(self, x):
-        return x**11/(6.7**11+x**11)
+        return x**10/(6.7**10+x**10)
 
     def Fd(self, x):
         return 1.25*x**5/(13.5**5+x**5)
@@ -1055,17 +1056,17 @@ class SynapseWithDendrite:
 
         i_sd = self.COND_SOMA_DEND*(pos_neuron.v_mem - v)
 
-        ca_nmda = self.INMDA_TO_CA*i_nmda
+        ca_nmda = self.INMDA_TO_CA*i_nmda*self.reducing_factor
         #ca_ampa = self.IAMPA_TO_CA*i_ampa
-        ca_vgcc = self.ICA_TO_CA*self.i_ca(v,a,b)
+        ca_vgcc = self.ICA_TO_CA*self.i_ca(v,a,b)*self.reducing_factor
 
         f = self.gamma01(self.P, self.D)
         g = self.gamma10(self.P, self.D)
 
-        #dca = 1
         dca = self.ca - self.CA_EQM
 
         p2 = 1 - self.p0 - self.p1
+        self.stdp_weight = self.G0*self.p0+self.G1*self.p1+self.G2*p2
 
         # membrane potential and gating variables of dendrite
         yield 1/self.CAP_MEM*(i_base + self.i_syn(v) + i_sd)
@@ -1087,7 +1088,7 @@ class SynapseWithDendrite:
         yield 1/self.tau_a(v)*(self.x_eqm(v, self.HF_PO_A, self.V_REW_A) - a)
         yield 1/self.tau_b(v)*(self.x_eqm(v, self.HF_PO_B, self.V_REW_B) - b)
         #weight
-        yield self.G0*self.p0+self.G1*self.p1+self.G2*p2
+        #yield self.G0*self.p0+self.G1*self.p1+self.G2*p2
         #nmda gate fast
         yield self.get_gating_dynamics(self.TAU_NMDA_FAST, v_pre, self.nmda_gate_fast, self.PARA_NMDA_FAST)
         #nmda gate slow
@@ -1108,7 +1109,7 @@ class SynapseWithDendrite:
 
     def get_initial_condition(self):
         #DIM = 15
-        return [-73, 0.2, 0.8, 0.2, 0.2, 0.8, 0.5, 0.2, 0.2, 0.2, 0.5, 0.5, 0.5, 0.5, 0.5]
+        return [-73, 0.2, 0.8, 0.2, 0.2, 0.8, 0.2, 0.2, 0.2, 0.5, 0.75, 0.25, 0.01, 0.01]
 
 class Soma:
     # Parameters:
