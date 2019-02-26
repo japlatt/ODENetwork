@@ -36,7 +36,7 @@ al_prob_para = {}
 # #Layer 2: Mushroom Body (MB) [second stage in separation]
 mb_para = dict(num_kc=1200, # flies: 2500
     KCClass = nm.HHNeuronWithCaJL, GGNClass = nm.LNRescaled,
-    KCSynapseClass = nm.Synapse_glu_HH, GGNSynapseClass = nm.Synapse_LNSI_Rescaled, gGNNKC=0.5)
+    KCSynapseClass = nm.Synapse_glu_HH, GGNSynapseClass = nm.Synapse_LN_Rescaled, gGNNKC=0.5)
 
 # mb = net.get_mushroom_body(**mb_para)
 # net.draw_colored_layered_digraph(mb)
@@ -50,8 +50,8 @@ bl_para = dict(num_bl=10, #flies: 34
 
 # Added in option to use different connecting synapse.
 # Play with the last 2 conductance values.
-other_para = dict(prob_a2k=0.15, prob_k2b=0.4, al_to_mb=nm.Synapse_PN_Rescaled,
-    mb_to_bl=nm.StdpSynapse,gALMB=1.0,gKCGNN=1.0,gKCBL=3.5)
+other_para = dict(prob_a2k=0.3, prob_k2b=0.5, al_to_mb=nm.Synapse_PN_Rescaled,
+    mb_to_bl=nm.StdpSynapse,gALMB=0.2,gKCGNN=0.15,gKCBL=3.5)
 
 full = net.get_olfaction_net(al_para=al_para,
     mb_para=mb_para, al_cond_para=al_cond_para, al_prob_para=al_prob_para, bl_para=bl_para, other_para=other_para)

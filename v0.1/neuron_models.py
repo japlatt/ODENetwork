@@ -38,13 +38,13 @@ def pulse(t,t0,w):
     return heaviside(t-t0)*heaviside(w+t0-t)
 
 
-class StaticSynapse:
+class StaticExcitatorySynapse:
     """
-    A static synapse.
+    A static excitatory synapse.
 
-    TODO: Currently doesn't function because there's nothing to integrate.
+    TODO: Does not work.
     """
-    COND_SYN = 3.
+    COND_SYN = 1.
     RE_PO_SYN = 0.
 
     # Dimension
@@ -60,14 +60,53 @@ class StaticSynapse:
         rho = self.COND_SYN
         wij = self.syn_weight
         return rho*wij*(v_pos - self.RE_PO_SYN)
-
-    # We should not need the followings for static object:
+        # We should not need the followings for static object:
     def fix_integration_index(self, i):
         pass
     def dydt(self, pre_neuron, pos_neuron):
         pass
     def get_initial_condition():
         pass
+    #
+
+class StaticInhibitorySynapse:
+    """
+    A static inhibitory synapse.
+    
+    TODO: Does not work!
+    """
+    COND_SYN = 1.
+    RE_PO_SYN = -90.
+    #v_pre = -60.0
+    # Dimension
+    DIM = 1
+    def __init__(self, syn_weight=1.):
+        """
+        Args:
+            syn_weight (:obj: 'float', optional): Scales synaptic weight.
+        """
+        self.syn_weight = syn_weight
+        self.r = None
+        #self.v_pre = None
+
+    def i_syn_ij(self, v_pos):
+        rho = self.COND_SYN
+        wij = self.syn_weight
+        # Make as a function for v_pre
+        a = -rho*wij*(v_pos - self.v_pre)
+        print(a)
+        return a
+
+    # We should not need the followings for static object:
+    def set_integration_index(self, i):
+        self.ii = i
+        self.r = y(i)
+    def dydt(self, pre_neuron, pos_neuron):
+        # This is symbolic assignment...
+        self.v_pre = pre_neuron.v_mem
+        yield 0
+    def get_initial_condition(self):
+        return [1.0]
     #
 
 class PlasticNMDASynapse:
@@ -1004,7 +1043,7 @@ class HHNeuronWithCaJL:
         #yield self.ALPHA_NMDA*t_conc*(1-rho) - self.BETA_NMDA*rho
 
     def get_initial_condition(self):
-        return [-73.,0.2,0.8,0.2,0.2,0.8]
+        return [-73.,0.05,0.05,0.9,0.2,0.8]
 
     # some helper functions for dydt
     def x_eqm(self, Vm, V_0, sigma_x):
@@ -2392,6 +2431,403 @@ class Synapse_PN_Rescaled:
         wij = self.syn_weight
         return wij*rho*(v_pos - self.RE_PO_NACH)
 
+
+class GGNTrial:
+    """
+    Model of Giant Gabaergic Neuron of the Mushroom Body.
+
+    The GGN enforces sparsity of Kenyon Cell firing within the antennal lobe.
+    All Kenyon Cells connect to this and this connects to all Kenyon Cells.
+    """
+    #Constants for LN
+
+    CAP_MEM  =   1.0 # membrane capacitance, in uF (really shoud be nF based on dimension)
+    # maximum conducances, in uS
+    COND_K  =   10.0 # too high?
+    COND_LEAK  =   0.25 #
+    COND_K_LEAK =   0.02 #
+    COND_CA =   2.9
+    COND_KCA=   0.36
+
+    # Nernst reversal potentials, in mV
+    REV_PO_K  = -95.0 #
+    REV_PO_LEAK  = -50.0 #
+    REV_PO_K_LEAK = -90.0 #
+    REV_PO_CA = 140.0
+
+    PHI = 1. # A temperature dependent constant of the form 3^((22-T)/10)
+
+    DIM = 6
+
+    def __init__(self, para = None):
+        self.i_inj = 0 # injected currents
+        self.v_mem = None
+        self.n_gate = None
+        self.q_gate = None
+        self.s_gate = None
+        self.v_gate = None
+        self.ca = None
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i
+        self.v_mem  = y(i)
+        self.n_gate  = y(i+1)
+        self.s_gate  = y(i+2)
+        self.v_gate  = y(i+3)
+        self.q_gate  = y(i+4)
+        self.ca = y(i+5)
+
+    def set_neuron_index(self, ni):
+        self.ni = ni
+
+    def dydt(self, pre_synapses, pre_neurons):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this neuron
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this neuron
+        """
+        # define how neurons are coupled here
+        VV = self.v_mem
+        nn = self.n_gate
+        qq = self.q_gate
+        ss = self.s_gate
+        vv = self.v_gate
+        Ca = self.ca
+        i_inj = self.i_inj
+
+        i_syn = sum([synapse.i_syn_ij(VV) for (i,synapse) in enumerate(pre_synapses)])
+        i_base = (self.i_k(VV, nn) + self.i_leak(VV) + \
+                        self.i_kca(VV, qq) + \
+                        self.i_ca(VV, ss, vv) + self.i_k_leak(VV) + i_syn)
+        #i_base = i_syn + self.i_k_leak(VV) + self.i_ca(VV,ss,vv)+self.i_k(VV,nn)
+
+        yield -1/self.CAP_MEM*(i_base - i_inj)
+        yield self.dnl_dt(VV, nn)
+        yield self.ds_dt(VV, ss)
+        yield self.dv_dt(VV, vv)
+        yield self.dq_dt(Ca, qq)
+        yield self.dCa_dt(VV, ss, vv, Ca)
+
+    def get_initial_condition(self):
+        return [-60.0+ np.random.normal(0,0.6), 0.0+np.random.uniform()*0.01,
+            0.0+np.random.uniform()*0.01, 0.8+np.random.uniform()*0.01,
+            0.0+np.random.uniform()*0.01, 0.2+np.random.uniform()*0.01]
+
+    def get_ind(self):
+        return self.ii
+
+    def get_volt(self):
+        return self.v_mem
+
+    def a_nl(self, V): return 0.02*(-(35.0+V)/(sym_backend.exp(-(35.0+V)/5.0)-1.0))
+    def b_nl(self, V): return 0.5*sym_backend.exp((-(40.0+V)/40.0))
+
+    def nl0(self, V): return self.a_nl(V)/(self.a_nl(V)+self.b_nl(V))
+    def tnl(self, V): return 4.65/(self.a_nl(V)+self.b_nl(V))
+
+    def s0(self, V): return 0.5*(1-sym_backend.tanh(-0.5*(V+20.0)/6.5))
+    #def ts(self, V): return 1+(V+30)*0.014
+    def ts(self,V): return 1.5
+
+    def v0(self, V): return 0.5*(1-sym_backend.tanh(0.5*(V+25.0)/12.0))
+    def tv(self, V): return 0.3*sym_backend.exp((V-40)/13.0)+0.002*sym_backend.exp(-(V-60.0)/29.0)
+
+    def q0(self, Ca): return Ca/(Ca+2.0)
+    def tq(self, Ca): return 100.0/(Ca+2.0)
+
+    def i_ca(self, V, s, v): return self.COND_CA*s**2*v*(V-self.REV_PO_CA)
+    def i_kca(self, V, q):   return self.COND_KCA*q*(V-self.REV_PO_K)
+    def i_k_leak(self, V): return self.COND_K_LEAK*(V - self.REV_PO_K_LEAK)
+    def i_k(self, V, nl): return  self.COND_K*nl**4*(V - self.REV_PO_K)
+    def i_leak(self, V): return self.COND_LEAK*(V - self.REV_PO_LEAK)
+
+
+
+    def dCa_dt(self, V, s, v, Ca): return -2.86e-4*self.i_ca(V, s, v)-(Ca-0.24)/150.0
+    def ds_dt(self, V, s): return (self.s0(V)-s)/self.ts(V)
+    def dv_dt(self, V, v): return (self.v0(V)-v)/self.tv(V)
+    def dq_dt(self, Ca, q): return (self.q0(Ca)-q)/self.tq(Ca)
+    def dnl_dt(self, V, nl): return (self.nl0(V)-nl)/self.tnl(V)
+
+class GGNTrial2:
+    """
+    Model of Local Neurons above, but rescaled.
+
+
+    Taken from:
+     Kee T., et.al, "Feed-Forward versus Feedback Inhibition in a Basic Olfactory
+     Circuit", PLOS Comput Biol, 2015.
+    """
+    #Constants for LN
+
+    CAP_MEM  =   1.0 # membrane capacitance, in uF (really shoud be nF based on dimension)
+    # maximum conducances, in uS
+    COND_K  =   10.0 # too high?
+    COND_LEAK  =   0.25 #
+    COND_K_LEAK =   0.02 #
+    COND_CA =   2.9
+    COND_KCA=   0.36
+
+    # Nernst reversal potentials, in mV
+    REV_PO_K  = -95.0 #
+    REV_PO_LEAK  = -50.0 #
+    REV_PO_K_LEAK = -90.0 #
+    REV_PO_CA = 140.0
+
+    PHI = 1. # A temperature dependent constant of the form 3^((22-T)/10)
+
+    DIM = 1
+
+    def __init__(self, para = None):
+        self.i_inj = 0 # injected currents
+        self.v_mem = None
+        self.n_gate = None
+        self.q_gate = None
+        self.s_gate = None
+        self.v_gate = None
+        self.ca = None
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i
+        self.v_mem  = y(i)
+        self.n_gate  = y(i+1)
+        self.s_gate  = y(i+2)
+        self.v_gate  = y(i+3)
+        self.q_gate  = y(i+4)
+        self.ca = y(i+5)
+
+    def set_neuron_index(self, ni):
+        self.ni = ni
+
+    def dydt(self, pre_synapses, pre_neurons):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this neuron
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this neuron
+        """
+        # define how neurons are coupled here
+        VV = self.v_mem
+        nn = self.n_gate
+        qq = self.q_gate
+        ss = self.s_gate
+        vv = self.v_gate
+        Ca = self.ca
+        i_inj = self.i_inj
+
+        i_syn = sum([synapse.i_syn_ij(VV) for (i,synapse) in enumerate(pre_synapses)])
+        #i_base = (self.i_k(VV, nn) + self.i_leak(VV) + \
+        #                self.i_kca(VV, qq) + \
+        #                self.i_ca(VV, ss, vv) + self.i_k_leak(VV) + i_syn)
+        i_base = i_syn + self.i_k_leak(VV) #+ self.i_ca(VV,ss,vv)+self.i_k(VV,nn)
+
+        yield -1/self.CAP_MEM*(i_base - i_inj)
+        #yield self.dnl_dt(VV, nn)
+        #yield self.ds_dt(VV, ss)
+        #yield self.dv_dt(VV, vv)
+        #yield self.dq_dt(Ca, qq)
+        #yield self.dCa_dt(VV, ss, vv, Ca)
+
+    def get_initial_condition(self):
+        return [-90.0+ np.random.normal(0,0.6), 0.0+np.random.uniform()*0.01,
+            0.0+np.random.uniform()*0.01, 0.8+np.random.uniform()*0.01,
+            0.0+np.random.uniform()*0.01, 0.2+np.random.uniform()*0.01]
+
+    def get_ind(self):
+        return self.ii
+
+    def get_volt(self):
+        return self.v_mem
+
+    def a_nl(self, V): return 0.02*(-(35.0+V)/(sym_backend.exp(-(35.0+V)/5.0)-1.0))
+    def b_nl(self, V): return 0.5*sym_backend.exp((-(40.0+V)/40.0))
+
+    def nl0(self, V): return self.a_nl(V)/(self.a_nl(V)+self.b_nl(V))
+    def tnl(self, V): return 4.65/(self.a_nl(V)+self.b_nl(V))
+
+    def s0(self, V): return 0.5*(1-sym_backend.tanh(-0.5*(V+20.0)/6.5))
+    #def ts(self, V): return 1+(V+30)*0.014
+    def ts(self,V): return 1.5
+
+    def v0(self, V): return 0.5*(1-sym_backend.tanh(0.5*(V+25.0)/12.0))
+    def tv(self, V): return 0.3*sym_backend.exp((V-40)/13.0)+0.002*sym_backend.exp(-(V-60.0)/29.0)
+
+    def q0(self, Ca): return Ca/(Ca+2.0)
+    def tq(self, Ca): return 100.0/(Ca+2.0)
+
+    def i_ca(self, V, s, v): return self.COND_CA*s**2*v*(V-self.REV_PO_CA)
+    def i_kca(self, V, q):   return self.COND_KCA*q*(V-self.REV_PO_K)
+    def i_k_leak(self, V): return self.COND_K_LEAK*(V - self.REV_PO_K_LEAK)
+    def i_k(self, V, nl): return  self.COND_K*nl**4*(V - self.REV_PO_K)
+    def i_leak(self, V): return self.COND_LEAK*(V - self.REV_PO_LEAK)
+
+
+
+    def dCa_dt(self, V, s, v, Ca): return -2.86e-4*self.i_ca(V, s, v)-(Ca-0.24)/150.0
+    def ds_dt(self, V, s): return (self.s0(V)-s)/self.ts(V)
+    def dv_dt(self, V, v): return (self.v0(V)-v)/self.tv(V)
+    def dq_dt(self, Ca, q): return (self.q0(Ca)-q)/self.tq(Ca)
+    def dnl_dt(self, V, nl): return (self.nl0(V)-nl)/self.tnl(V)
+
+class Synapse_GGNTrial:
+    #inhibition
+    RE_PO_GABA = -80.0
+    ALPHA_R = 10.0
+    BETA_R = 0.16
+    MAX_CONC = 1.0
+
+
+    V_REW_R = 1.5
+    HF_PO_R = -50
+
+
+    DIM = 1
+    def __init__(self, gGABA = 8.0):
+        self.r_gate = None
+        self.syn_weight = 1.0
+        self.COND_GABA = gGABA
+
+
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i
+        self.r_gate = y(i)
+
+
+    def get_ind(self):
+        return self.ii
+
+    def fix_weight(self, w):
+        self.syn_weight = w
+
+    def dydt(self, pre_neuron, pos_neuron):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this synapse
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this synapse
+        """
+        Vpre = pre_neuron.v_mem
+        r = self.r_gate #This corresponds to fast GABA
+        yield (self.ALPHA_R*self.MAX_CONC/(1+sym_backend.exp(-(Vpre - self.HF_PO_R)/self.V_REW_R)))*(1-r) - self.BETA_R*r
+
+
+    def get_params(self):
+        return [self.COND_GABA, self.REV_PO_GABA]
+
+    def get_initial_condition(self):
+        return [0.0+np.random.uniform()*0.01]
+
+    def i_syn_ij(self, v_pos):
+        """
+        A function which calculates the total synaptic current
+        Args:
+            v_pos (float): The membrane potential of the post synaptic neuron
+        Returns:
+            A value for the total synaptic current, used by the post-synaptic cell
+        """
+        rho = self.COND_GABA*self.r_gate
+        wij = self.syn_weight
+        return wij*rho*(v_pos - self.RE_PO_GABA)
+
+
+class Synapse_KCGNN:
+    """
+    An excitory synapse based on the glutamate synapse.
+    """
+    #Excitation
+    REV_PO_CL = -38.0  #mV
+    ALPHA_R = 2.4
+    #ALPHA_R = 1
+    BETA_R = 0.56
+    MAX_CONC = 1.0  # maximum neurotransmitter concentration
+
+
+    V_REW_R = 5.0
+    HF_PO_R = 7.0
+
+    DIM = 1
+    def __init__(self, g=0.4,para = None):
+        self.r_gate = None
+        self.syn_weight = 1.0
+        self.cond_glu = g
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i
+        self.r_gate = y(i)
+
+    def fix_weight(self, w):
+        self.syn_weight = w
+
+    def dydt(self, pre_neuron, pos_neuron):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this synapse
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this synapse
+        """
+        Vpre = pre_neuron.v_mem
+        r = self.r_gate
+        yield (self.ALPHA_R*self.MAX_CONC/(1+sym_backend.exp(-(Vpre - self.HF_PO_R)/self.V_REW_R)))*(1-r) - self.BETA_R*r
+    def get_params(self):
+        return [self.cond_glu, self.REV_PO_CL]
+
+    def get_ind(self):
+        return self.ii
+
+    def get_initial_condition(self):
+        return [0.1]
+
+    def i_syn_ij(self, v_pos):
+        """
+        A function which calculates the total synaptic current
+        Args:
+            v_pos (float): The membrane potential of the post synaptic neuron
+        Returns:
+            A value for the total synaptic current, used by the post-synaptic cell
+        """
+        rho = self.cond_glu*self.r_gate
+        wij = self.syn_weight
+        a = rho*wij*(v_pos - self.REV_PO_CL)
+        print(a)
+        return a
 
 """
 We do not current use the models below, but will be kept below.

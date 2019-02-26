@@ -61,7 +61,8 @@ def set_up_lab(net):
             yield from pos_neuron.dydt(pre_synapses, pre_neurons)
             for pre_neuron in net.predecessors(pos_neuron):
                 synapse = net[pre_neuron][pos_neuron]["synapse"]
-                yield from synapse.dydt(pre_neuron, pos_neuron)
+                if synapse.dydt(pre_neuron,pos_neuron) is not None:
+                    yield from synapse.dydt(pre_neuron, pos_neuron)
     # Impose initial conditions
     initial_conditions = []
     #neurons = net.vertexs # the list of all neruons
@@ -337,3 +338,52 @@ def show_random_neuron_in_layer(time_sampled_range, data, net, layer_idx, num_ne
         axes[-1].set_xlabel("time [ms]")
         plt.suptitle("Random Neuron in layer {}".format(layer_idx))
     plt.show()
+
+def show_random_neuron_sv_in_layer(time_sampled_range, data, net, layer_idx, num_neurons=1):
+    pre_neurons = net.layers[layer_idx].nodes()
+    display_neurons = random.sample(pre_neurons,num_neurons)
+    #fig, axes = plt.subplots(2,1,sharex=True)
+
+    ## Fix for DIM = 1
+    for (n, neuron) in enumerate(display_neurons):
+        dim = neuron.DIM
+        ii = neuron.ii
+        fig, axes = plt.subplots(dim,1,sharex=True)
+
+        if dim > 1:
+
+            for j in range(dim):
+                tmp = data[:,ii+j]
+                #i_inj = electrodes.sym2num(t, neuron.i_inj)
+                #i_inj = i_inj(time_sampled_range)
+                axes[j].plot(time_sampled_range, tmp, label=r"$SV %d"%j)
+                axes[j].set_ylabel("SV")
+                axes[j].legend()
+            axes[-1].set_xlabel("time [ms]")
+        else:
+                tmp = data[:,ii]
+                axes.plot(time_sampled_range, tmp, label=r"$SV %d"%1)
+                axes.set_ylabel("SV")
+                axes.legend()
+                axes.set_xlabel('time [ms]')
+        plt.suptitle("Random Neuron State Variables in layer {}".format(layer_idx))
+    plt.show()
+
+def interspike_interval(time_sampled_range,data,net,layer_idx,num_neurons=1):
+        pre_neurons=net.layers[layer_idx].nodes()
+        display_neurons = random.sample(pre_neurons,num_neurons)
+
+        spike_thresh = 0
+
+        for (n,neuron) in enumerate(display_neurons):
+            ii = neuron.ii
+            v_m = data[:,ii]
+
+            spike_bool = sp.logical_and(v_m[:-1] < spike_thresh, v_m[1:] >= spike_thresh)
+            spike_idx = [idx for idx, x in enumerate(spikes) if x]
+            time_spikes = time_sampled_range[spike_idx] # in ms
+            dt = np.diff(time_spikes)
+            isi_mean = np.mean(dt)
+            isi_dev = np.std(dt)
+
+            print('{} {}'.format(isi_mean,isi_dev))
