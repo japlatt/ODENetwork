@@ -61,7 +61,8 @@ def set_up_lab(net):
             yield from pos_neuron.dydt(pre_synapses, pre_neurons)
             for pre_neuron in net.predecessors(pos_neuron):
                 synapse = net[pre_neuron][pos_neuron]["synapse"]
-                yield from synapse.dydt(pre_neuron, pos_neuron)
+                if synapse.dydt(pre_neuron,pos_neuron) is not None:
+                    yield from synapse.dydt(pre_neuron, pos_neuron)
     #for debug use only
     #for dydt in f():
     #    print(dydt)
