@@ -13,8 +13,8 @@ cycol = cycle(['#f10c45','#069af3','#02590f','#ab33ff','#ff8c00','#ffd700'])
 marker = cycle(['^','o','s','p'])
 
 # These settings need to be changes each time!
-num_odor = 2
-num_conc = 2
+num_odor = 3
+num_conc = 1
 total_paths = num_odor
 folder_prefix = 'results/'
 
