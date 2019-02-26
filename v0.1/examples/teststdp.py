@@ -37,15 +37,15 @@ synapse_type = nm.SynapseWithDendrite
 NUM_DIM_SYN = synapse_type.DIM
 
 net = ns.get_multilayer_fc(neuron_type, synapse_type, neuron_nums)
-total_time = 500.
+total_time = 1000.
 time_sampled_range = np.arange(0., total_time, 0.1)
 
 def get_data(delta_time):
 
     # step 2: design an experiment
-    T0 = 250.
+    T0 = 500.
     TIME_DELAY = delta_time
-    ex.delay_pulses_on_layer_0_and_1(net, t0s=[T0, T0+TIME_DELAY], i_max=50.)
+    ex.delay_pulses_on_layer_0_and_1(net, t0s=[T0, T0+TIME_DELAY], i_max=160.)
     # step 3: ask our lab manager to set up the lab for the experiment
     f, initial_conditions, neuron_inds = lm.set_up_lab(net)
 
@@ -60,11 +60,10 @@ def get_data(delta_time):
 delta_time = 100.
 data = get_data(delta_time)
 #dimension index of calcium and stdp weight
-ca_index = 9
+ca_index = 12
 data_ca = data[:,NUM_NEURON*NUM_DIM_NEURON + ca_index]
-#w_index = 6
-p0_index = 10
-p1_index = 11
+p0_index = 13
+p1_index = 14
 data_p0 = data[:,NUM_NEURON*NUM_DIM_NEURON + p0_index]
 data_p1 = data[:,NUM_NEURON*NUM_DIM_NEURON + p1_index]
 data_p2 = 1 - data_p0 - data_p1
@@ -87,17 +86,13 @@ plt.show()
 # stdp profile
 
 delta_time = 1.
-DT = np.linspace(-80,80,40)
+DT = np.linspace(-50,50,20)
 DW = np.zeros(len(DT))
 
 for (i,dt) in enumerate(DT):
     data = get_data(dt)
     #dimension index of calcium and stdp weight
-    ca_index = 9
     data_ca = data[:,NUM_NEURON*NUM_DIM_NEURON + ca_index]
-    #w_index = 6
-    p0_index = 10
-    p1_index = 11
     data_p0 = data[:,NUM_NEURON*NUM_DIM_NEURON + p0_index]
     data_p1 = data[:,NUM_NEURON*NUM_DIM_NEURON + p1_index]
     data_p2 = 1 - data_p0 - data_p1
