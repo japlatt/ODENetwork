@@ -52,18 +52,20 @@ for i in sorted(glob.glob('{0}AL*_od*_inj*'.format(folder_prefix))):
     name = i
     tot_data.append(np.load(name))
 
-print(np.shape(tot_data))
+# print(np.shape(tot_data))
 single_ts = len(tot_data[0][0])
 
 
 # Average multiple trials of same odor/conc value
+#if num_trials > 1:
+
 avg_data = []
 for k in range(int(len(tot_data)/num_trials)):
     tmp = tot_data[k*num_trials:num_trials + k*num_trials]
     avg_data.append(np.mean(tmp,axis=0))
-print(np.shape(avg_data))
+# print(np.shape(avg_data))
 data = np.hstack(avg_data)
-print(data.shape)
+# print(data.shape)
 num_neurons, num_points = np.shape(data)
 
 #average over 50 ms of network activity
@@ -86,10 +88,10 @@ pca.fit(data.T)
 w = pca.explained_variance_
 v = pca.components_
 
-# Save the pca data into each odor/conc 
+# Save the pca data into each odor/conc
 Xk = pca.transform(data.T)
 # Xorg = pca.transform(np.asarray(avg_data).T)
 for i in range(num_odors):
 	for j in range(num_conc):
 		np.savetxt('results/odor{0}_conc{1}.txt'.format(i,j), Xk[(i*num_conc+j)*single_ts:(i*num_conc+j+1)*single_ts])
-print(Xk.shape)
+# print(Xk.shape)
