@@ -21,7 +21,10 @@ glo_para = dict(num_pn=6, num_ln=2, # flies: 3 and 30
     PNClass=nm.PN_2, LNClass=nm.LN,
     PNSynapseClass=nm.Synapse_nAch_PN_2, LNSynapseClass=nm.Synapse_gaba_LN_with_slow)
 
-al_para = dict(num_glo=15, glo_para=glo_para) # flies: 54
+
+al_prob_para = {}
+al_cond_para = dict(gLN = 110.0, gPN = -1.0, gLNPN=400.0, gPNLN=600.0)
+al_para = dict(num_glo=15, glo_para=glo_para,al_prob_para=al_prob_para, al_cond_para=al_cond_para) # flies: 54
 
 
 AL = net.get_antennal_lobe(**al_para)
@@ -31,10 +34,10 @@ AL = net.get_antennal_lobe(**al_para)
 
 num_layers = len(AL.layers)
 Ibase = 150 # nA
-p = 0.33 #probability
+p = 0.33 # probability of injecting
 
 #run for specified time with dt
-time_len = 1000.0
+time_len = 500.0
 dt = 0.02
 time_sampled_range = np.arange(0., time_len, dt)
 

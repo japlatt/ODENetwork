@@ -41,8 +41,8 @@ def bins(data, bin_size):
 
 #folder with exported data
 folder_prefix = 'results/'
-num_odors = 2  # Different spatial injections
-num_conc = 2  # Different current amplitudes
+num_odors = 3  # Different spatial injections
+num_conc = 1  # Different current amplitudes
 num_trials = 1  # trials will get averaged -- useful in stochastic network
 
 # load data
