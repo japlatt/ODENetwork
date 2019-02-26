@@ -1175,19 +1175,19 @@ class Soma:
     RE_PO_K = -95 # K Nernst potential, unit: mV
     # paramters of gating variables
     V_TH = -65
-    # old model
-    HF_PO_M = -40 # m half potential, unit: mV
-    HF_PO_H = -60 # h half potential, unit: mV
-    HF_PO_N = -55 # n half potential, unit: mV
-    V_REW_M = 16 # m voltage response width, unit: mV
-    V_REW_H = -16 # m voltage response width, unit: mV
-    V_REW_N = 25 # m voltage response width, unit: mV
-    TAU_0_M = 0.1 # unit ms
-    TAU_1_M = 0.4
-    TAU_0_H = 1.
-    TAU_1_H = 7.
-    TAU_0_N = 1.
-    TAU_1_N = 5.
+    # # old model
+    # HF_PO_M = -40 # m half potential, unit: mV
+    # HF_PO_H = -60 # h half potential, unit: mV
+    # HF_PO_N = -55 # n half potential, unit: mV
+    # V_REW_M = 16 # m voltage response width, unit: mV
+    # V_REW_H = -16 # m voltage response width, unit: mV
+    # V_REW_N = 25 # m voltage response width, unit: mV
+    # TAU_0_M = 0.1 # unit ms
+    # TAU_1_M = 0.4
+    # TAU_0_H = 1.
+    # TAU_1_H = 7.
+    # TAU_0_N = 1.
+    # TAU_1_N = 5.
 
     COND_DEND_SOMA = 3.5
 
@@ -1244,6 +1244,7 @@ class Soma:
         n = self.n_gate
         i_inj = self.i_inj
 
+        # need modification if add inhibition
         i_ds = sum(self.COND_DEND_SOMA*(synapse.v_mem - v)
             for (i,synapse) in enumerate(pre_synapses))
 

@@ -86,7 +86,7 @@ plt.show()
 # stdp profile
 
 delta_time = 1.
-DT = np.linspace(-50,50,20)
+DT = np.linspace(-50,50,10)
 DW = np.zeros(len(DT))
 
 for (i,dt) in enumerate(DT):
@@ -107,8 +107,8 @@ plt.xlabel(r"$\Delta t$[ms]")
 plt.show()
 # plt.savefig("stdp.png",dpi=500)
 
-# for layer_idx in range(len(net.layers)):
-#     lm.show_all_neuron_in_layer(
-#         time_sampled_range, data, net, layer_idx)
-#     lm.show_all_synaspe_onto_layer(
-#         time_sampled_range, data, net, layer_idx)
+for layer_idx in range(len(net.layers)):
+    lm.show_all_neuron_in_layer(
+        time_sampled_range, data, net, layer_idx)
+    lm.show_all_synaspe_onto_layer(
+        time_sampled_range, data, net, layer_idx)
