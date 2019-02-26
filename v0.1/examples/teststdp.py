@@ -1,7 +1,7 @@
 """
 used to test stdp learning behavior
 """
-%matplotlib inline
+# %matplotlib inline
 # begin boiler plate for compatibility
 from __future__ import absolute_import, division, print_function
 from __future__ import unicode_literals
@@ -20,6 +20,8 @@ import lab_manager as lm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import rc
+
+plt.style.use('ggplot')
 
 from importlib import reload
 reload(nm)
@@ -45,19 +47,20 @@ def get_data(delta_time):
     # step 2: design an experiment
     T0 = 500.
     TIME_DELAY = delta_time
-    ex.delay_pulses_on_layer_0_and_1(net, t0s=[T0, T0+TIME_DELAY], i_max=160.)
+
+    ex.delay_pulses_on_layer_0_and_1(net, t0s=[T0, T0+TIME_DELAY], i_max=160., w = 1.0)
     # step 3: ask our lab manager to set up the lab for the experiment
     f, initial_conditions, neuron_inds = lm.set_up_lab(net)
 
     # step 4: run the lab and gather data
 
-    data = lm.run_lab(f, initial_conditions, time_sampled_range)
+    data = lm.run_lab(f, initial_conditions, time_sampled_range, integrator = 'dopri5')
 
     return data
 
 # step 5: plot
 
-delta_time = 100.
+delta_time = 4.5
 data = get_data(delta_time)
 #dimension index of calcium and stdp weight
 ca_index = 12
@@ -85,8 +88,7 @@ plt.show()
 
 # stdp profile
 
-delta_time = 1.
-DT = np.linspace(-50,50,10)
+DT = np.linspace(-50,50,20)
 DW = np.zeros(len(DT))
 
 for (i,dt) in enumerate(DT):
@@ -99,13 +101,15 @@ for (i,dt) in enumerate(DT):
     data_w = synapse_type.G0*data_p0 + synapse_type.G1*data_p1 + synapse_type.G2*data_p2
     DW[i] = (data_w[-1] - data_w[0])
 
-plt.figure()
-plt.plot(DT,DW,marker=".",color="black")
-plt.ylabel(r"$\Delta W$")
-#plt.yticks([])
-plt.xlabel(r"$\Delta t$[ms]")
+fig = plt.figure(figsize = (10, 7))
+plt.plot(DT,DW,marker=".",color="black", linewidth = 2)
+plt.title('STDP Curve', fontsize = 30)
+plt.ylabel(r"$\Delta W$", fontsize = 20)
+
+plt.xlabel(r"$\Delta t$ [ms]", fontsize = 20)
 plt.show()
-# plt.savefig("stdp.png",dpi=500)
+fig.savefig("stdp.png",dpi=500, bbox_inches = 'tight')
+
 
 for layer_idx in range(len(net.layers)):
     lm.show_all_neuron_in_layer(

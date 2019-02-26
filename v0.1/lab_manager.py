@@ -4,19 +4,16 @@ lab_manager.py
 It does what a lab manager should be doing. i.e
 1. set_up_lab()
 2. run_lab()
-
-TODO: Create a raster plot function.
 """
 
 import sys
 import pandas as pd
 import numpy as np
 import random
-# might be useful for mac user, uncommnet below if needed
-import matplotlib
-matplotlib.use("TKAgg")
-
 import matplotlib.pyplot as plt
+# might be useful for mac user, uncommnet below if needed
+# import matplotlib
+# matplotlib.use("TKAgg")
 
 from jitcode import jitcode, y, t # this "y" will now allow symbolic tracking
 from jitcode import integrator_tools
@@ -63,10 +60,7 @@ def set_up_lab(net):
                 synapse = net[pre_neuron][pos_neuron]["synapse"]
                 if synapse.dydt(pre_neuron,pos_neuron) is not None:
                     yield from synapse.dydt(pre_neuron, pos_neuron)
-    #for debug use only
-    #for dydt in f():
-    #    print(dydt)
-    #end debug
+
     # Impose initial conditions
     initial_conditions = []
     #neurons = net.vertexs # the list of all neruons
@@ -89,8 +83,7 @@ run_lab(f, initial_conditions, time_sampled_range, integrator='dopri5'):
 
 Run the lab.
 """
-def run_lab(f, initial_conditions, time_sampled_range, integrator='dopri5',
-    compile=False):
+def run_lab(f, initial_conditions, time_sampled_range, integrator='dopri5', compile=False):
     dim_total = len(initial_conditions)
     ODE = jitcode(f, n=dim_total)
     if compile:
@@ -236,29 +229,35 @@ def show_all_neuron_in_layer(time_sampled_range, data, net, layer_idx):
         plt.suptitle("Neuron {} in layer {}".format(pre_neuron.ni, layer_idx))
     plt.show()
 
-def show_all_synaspe_onto_layer(time_sampled_range, data, net, layer_idx):
+def show_all_synaspe_onto_layer(time_sampled_range, data, net, pre_layer_idx, pos_layer_idx):
     def sigmoid(x):
         return 1./(1.+ np.exp(-x))
-    pos_neurons = net.layers[layer_idx].nodes()
+    pos_neurons = net.layers[pos_layer_idx].nodes()
+    pre_neurons = net.layers[pre_layer_idx].nodes()
+
     for pos_neuron in pos_neurons:
-        pre_neurons = list(net.predecessors(pos_neuron))
         for pre_neuron in pre_neurons:
             synapse = net[pre_neuron][pos_neuron]["synapse"]
-            #THETA_D = synapse.THETA_D
-            #THETA_P = synapse.THETA_P
             ii = synapse.ii
-            fig, axes = plt.subplots(3,1,sharex=True)
-            red_syn_weight = data[:,ii]
-            ca = data[:,ii+2]
-            axes[0].plot(time_sampled_range, red_syn_weight, label="reduced synaptic weight")
-            axes[0].legend()
-            axes[1].plot(time_sampled_range, sigmoid(red_syn_weight), label="synaptic weight")
-            axes[1].legend()
-            axes[2].plot(time_sampled_range, ca, label="Ca")
-            #axes[2].axhline(THETA_D, color="orange", label="theta_d")
-            #axes[2].axhline(THETA_P, color="green", label="theta_p")
-            axes[2].legend()
-            plt.suptitle("w_{}{}".format(pre_neuron.ni, pos_neuron.ni))
+            fig, axes = plt.subplots(2,1,sharex=True)
+
+            ca_index = 9
+            p0_index = 10
+            p1_index = 11
+
+            data_ca = data[:,ii + ca_index]
+            data_p0 = data[:,ii + p0_index]
+            data_p1 = data[:,ii + p1_index]
+            data_p2 = 1 - data_p0 - data_p1
+            data_w = synapse.G0*data_p0 + synapse.G1*data_p1 + synapse.G2*data_p2
+
+            fig, axes = plt.subplots(2, 1, sharex = 'col', figsize = (8,5))
+            axes[0].plot(time_sampled_range, data_ca, color="blue", label="Ca", linewidth = 2)
+            
+            axes[0].legend(loc = 'best', frameon = False)
+            axes[1].plot(time_sampled_range, data_w, label="Connection Weight", linewidth = 2)
+            axes[1].legend(loc = 'best', frameon = False)
+            axes[1].set_xlabel("time [ms]")
             plt.show()
 
 
