@@ -908,6 +908,8 @@ class SynapseWithDendrite:
     # COND_AMPA = 1.75
     # conductance from soma to dendrite
     COND_SOMA_DEND = 1.
+    COND_DEND_SOMA = 3.5
+
     INMDA_TO_CA = 0.15/0.05
     # IAMPA_TO_CA = 1.5e-5/1.75
     ICA_TO_CA = 3.5/0.1
@@ -1111,6 +1113,16 @@ class SynapseWithDendrite:
         #DIM = 15
         return [-73, 0.2, 0.8, 0.2, 0.2, 0.8, 0.2, 0.2, 0.2, 0.5, 0.75, 0.25, 0.01, 0.01]
 
+    def i_syn_ij(self, v_pos):
+        """
+        A function which calculates the total synaptic current
+        Args:
+            v_pos (float): The membrane potential of the post synaptic neuron
+        Returns:
+            A value for the toal synaptic current, used by the post-synaptic cell
+        """
+        return self.COND_DEND_SOMA*(self.v_mem - v_pos)
+
 class Soma:
     # Parameters:
     # Capacitance
@@ -1194,8 +1206,10 @@ class Soma:
         h = self.h_gate
         i_inj = self.i_inj
 
-        i_ds = sum(self.COND_DEND_SOMA*(synapse.v_mem - v)
-            for (i,synapse) in enumerate(pre_synapses))
+        i_ds = sum([synapse.i_syn_ij(v) for (i,synapse) in enumerate(pre_synapses)])
+
+        # i_ds = sum(self.COND_DEND_SOMA*(synapse.v_mem - v)
+        #     for (i,synapse) in enumerate(pre_synapses))
 
         i_base = self.i_leak(v) + self.i_na(v,m,h) + self.i_k(v,n)
 
@@ -1737,7 +1751,7 @@ class SynapseGabaBl:
         """
         rho = self.r_gate
         wij = self.syn_weight
-        return wij*rho*(v_pos - self.REV_PO_GABA)
+        return -wij*rho*(v_pos - self.REV_PO_GABA)
 
     def get_initial_condition(self):
         return [0.1]
