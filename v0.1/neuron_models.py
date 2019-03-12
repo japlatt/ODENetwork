@@ -72,7 +72,7 @@ class StaticExcitatorySynapse:
 class StaticInhibitorySynapse:
     """
     A static inhibitory synapse.
-    
+
     TODO: Does not work!
     """
     COND_SYN = 1.
@@ -2434,10 +2434,14 @@ class Synapse_PN_Rescaled:
 
 class GGNTrial:
     """
-    Model of Giant Gabaergic Neuron of the Mushroom Body.
+    Model of Giant Gabaergic Neuron of the Mushroom Body. Very similar to the
+    local neuron in the antennal lobe.
 
     The GGN enforces sparsity of Kenyon Cell firing within the antennal lobe.
     All Kenyon Cells connect to this and this connects to all Kenyon Cells.
+
+    TODO: Explore altering the time constant of Calcium decay, should be ~20 rather
+    than ~150 ms.
     """
     #Constants for LN
 
@@ -2561,12 +2565,11 @@ class GGNTrial:
 
 class GGNTrial2:
     """
-    Model of Local Neurons above, but rescaled.
+    A simplified model of the Giant Gabaergic Neuron in the Mushroom Body.
 
-
-    Taken from:
-     Kee T., et.al, "Feed-Forward versus Feedback Inhibition in a Basic Olfactory
-     Circuit", PLOS Comput Biol, 2015.
+    This is a one dimensional neuron with two current inputs:
+        (1) synapse current
+        (2) A leak current
     """
     #Constants for LN
 

@@ -37,7 +37,7 @@ Ibase = 150 # nA
 p = 0.33 # probability of injecting
 
 #run for specified time with dt
-time_len = 500.0
+time_len = 300.0
 dt = 0.02
 time_sampled_range = np.arange(0., time_len, dt)
 
