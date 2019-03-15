@@ -1446,8 +1446,8 @@ class SynapseWithDendrite:
     form for updating weight parameters.
     """
     # Parameters:
-    COND_CA = 4e-6 * 0.06 # Max. Ca conductance, unit: mScm^-2
-    COND_NMDA = 0.005 * 8 #amplitude 4
+    COND_CA = 4e-6 * 0.18 # Max. Ca conductance, unit: mScm^-2
+    COND_NMDA = 0.005 * 5.5 #amplitude 4
     reducing_factor = 1
     # conductance from soma to dendrite
     COND_SOMA_DEND = 1

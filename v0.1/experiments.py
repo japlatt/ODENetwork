@@ -37,15 +37,15 @@ def pulse_train_on_layer(net, layer_idx, t0s, i_max=50.):
     for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
         neuron.i_inj = i_inj # the jitcode t
 
-def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max1=50., i_max2=50., w = 1.0):
+def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max=55., w = 1.0):
     #i_max = 50. #5. # (some unit)
     # t0=50. # ms
     #dts = 10.
     # w = 1. #ms
     for (i,neuron) in enumerate(net.layers[0].nodes()):
-        neuron.i_inj = i_max1*electrodes.unit_pulse(t,t0s[0],w) # the jitcode t
+        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[0],w) # the jitcode t
     for neuron in net.layers[1].nodes():
-        neuron.i_inj = i_max2*electrodes.unit_pulse(t,t0s[1],w)
+        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[1],w)
 
 def constant_current_on_top_layer(net, i_max=50.):
     #i_max = 50. #5. # (some unit)
@@ -138,11 +138,11 @@ time_per_sniff: length of the spike train per class
 def feed_gaussian_rate_poisson_spikes(
     net, base_rate, i_max=50., num_sniffs=10, time_per_sniff=100.):
     #i_max = 50. #5. # (some unit)
-    if len(net.layers[0].nodes()) != 2:
-        print("not yet done")
-        return
+    # if len(net.layers[0].nodes()) != 2:
+    #     print("not yet done")
+    #     return
     # will draw one class at a time
-    num_class = 2
+    num_class = len(net.layers[0].nodes())
 
     #Will return vector of classes. Feed in classes in random order
     classes = np.random.randint(num_class, size=num_sniffs)

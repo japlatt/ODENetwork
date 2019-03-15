@@ -207,8 +207,6 @@ show_layer(time_sampled_range, data, net, layer_idx):
 Show a neuron in layer_idx and the neruon it synapses onto, and the synapse.
 """
 def show_all_neuron_in_layer(time_sampled_range, data, net, layer_idx):
-    THETA_D = nm.PlasticNMDASynapse.THETA_D
-    THETA_P = nm.PlasticNMDASynapse.THETA_P
 
     pre_neurons = net.layers[layer_idx].nodes()
     for (n, pre_neuron) in enumerate(pre_neurons):
@@ -319,7 +317,7 @@ def show_all_dendrite_onto_layer_old(time_sampled_range, data, net, layer_idx):
             plt.show()
             fig.savefig("dendrite.png",dpi=500, bbox_inches = 'tight')
 
-def show_all_dendrite_onto_layer(time_sampled_range, data, net, layer_idx):
+def show_all_dendrite_onto_layer(time_sampled_range, data, net, layer_idx, delta_time = None):
     pos_neurons = net.layers[layer_idx].nodes()
     for pos_neuron in pos_neurons:
         pre_neurons = list(net.predecessors(pos_neuron))
@@ -351,7 +349,7 @@ def show_all_dendrite_onto_layer(time_sampled_range, data, net, layer_idx):
             print(w)
             #i_a = -synapse.COND_A*ma*ha*(v - synapse.RE_PO_K)
             i_ampa = -synapse.initial_cond*w*ag*(v-synapse.RE_PO_EX)
-            B = 1./(1.+0.288*synapse.MG*np.exp(-0.062*v))
+            B = 1./(1.+(1./3.57)*synapse.MG*np.exp(-0.062*v))
             i_nmda = -synapse.COND_NMDA*ng*B*(v-synapse.RE_PO_EX)
             i_vgcc = -synapse.COND_CA*(v/synapse.CA_EQM) \
                 *(ca - synapse.CA_EX*np.exp(-2*v*synapse.FRT)) \
@@ -361,25 +359,23 @@ def show_all_dendrite_onto_layer(time_sampled_range, data, net, layer_idx):
             ca_nmda = synapse.INMDA_TO_CA*i_nmda
 
             fig, axes = plt.subplots(8,1,sharex=True,figsize=(7.5,15))
-            axes[0].plot(time_sampled_range, v, label="v")
+            plt.suptitle("dendrite_{}{}, dt={}ms".format(pre_neuron.ni, pos_neuron.ni, delta_time), fontsize=20)
+            axes[0].plot(time_sampled_range, v, label="V")
             axes[0].legend()
-            #axes[1].plot(time_sampled_range, B, label="B")
-            #axes[1].plot(time_sampled_range, m, label="m")
-            #axes[1].plot(time_sampled_range, h, label="h")
-            #axes[1].plot(time_sampled_range, n, label="n")
+            axes[1].plot(time_sampled_range, B, label="B")
+            axes[1].plot(time_sampled_range, m, label="m")
+            axes[1].plot(time_sampled_range, h, label="h")
+            axes[1].plot(time_sampled_range, n, label="n")
             axes[1].plot(time_sampled_range, a, label="a")
             axes[1].plot(time_sampled_range, b, label="b")
-            #axes[1].plot(time_sampled_range, ng, label="ng")
-            #axes[1].plot(time_sampled_range, ag, label="ag")
             axes[1].legend()
-            axes[2].plot(time_sampled_range, i_vgcc, label="i_vgcc")
-            #axes[2].plot(time_sampled_range, i_ampa, label="i_ampa")
-            axes[2].plot(time_sampled_range, i_nmda, label="i_nmda")
+            axes[2].plot(time_sampled_range, i_vgcc, label="I_VGCC")
+            axes[2].plot(time_sampled_range, i_nmda, label="I_NMDA")
             axes[2].legend()
-            axes[3].plot(time_sampled_range, ca, label="ca")
+            axes[3].plot(time_sampled_range, ca_vgcc, label="C_VGCC")
+            axes[3].plot(time_sampled_range, ca_nmda, label="C_NMDA")
             axes[3].legend()
-            axes[4].plot(time_sampled_range, ca_vgcc, label="ica_vgcc")
-            axes[4].plot(time_sampled_range, ca_nmda, label="ica_nmda")
+            axes[4].plot(time_sampled_range, ca, label="Ca")
             axes[4].legend()
             axes[5].plot(time_sampled_range, P, label="P")
             axes[5].plot(time_sampled_range, D, label="D")
@@ -388,9 +384,8 @@ def show_all_dendrite_onto_layer(time_sampled_range, data, net, layer_idx):
             axes[6].plot(time_sampled_range, p1, label="p1")
             axes[6].plot(time_sampled_range, p2, label="p2")
             axes[6].legend()
-            axes[7].plot(time_sampled_range, w, label="w")
+            axes[7].plot(time_sampled_range, w, label="W")
             axes[7].legend()
-            plt.suptitle("dendrite_{}{}".format(pre_neuron.ni, pos_neuron.ni))
             plt.show()
             fig.savefig("dendrite.png",dpi=500, bbox_inches = 'tight')
 
