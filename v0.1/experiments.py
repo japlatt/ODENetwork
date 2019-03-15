@@ -37,15 +37,15 @@ def pulse_train_on_layer(net, layer_idx, t0s, i_max=50.):
     for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
         neuron.i_inj = i_inj # the jitcode t
 
-def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max=50., w = 1.0):
+def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max1=50., i_max2=50., w = 1.0):
     #i_max = 50. #5. # (some unit)
     # t0=50. # ms
     #dts = 10.
     # w = 1. #ms
     for (i,neuron) in enumerate(net.layers[0].nodes()):
-        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[0],w) # the jitcode t
+        neuron.i_inj = i_max1*electrodes.unit_pulse(t,t0s[0],w) # the jitcode t
     for neuron in net.layers[1].nodes():
-        neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[1],w)
+        neuron.i_inj = i_max2*electrodes.unit_pulse(t,t0s[1],w)
 
 def constant_current_on_top_layer(net, i_max=50.):
     #i_max = 50. #5. # (some unit)
@@ -125,7 +125,7 @@ def const_current(net, num_layers, neuron_inds, current_vals):
         for i in range(len(neuron_inds[l])):
             layer_list[neuron_inds[l][i]].i_inj = current_vals[l][i]
 
-            
+
 '''
 Feeds in different classes of poisson spike trains
 
