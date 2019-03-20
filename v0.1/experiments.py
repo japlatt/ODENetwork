@@ -37,11 +37,11 @@ def pulse_train_on_layer(net, layer_idx, t0s, i_max=50.):
     for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
         neuron.i_inj = i_inj # the jitcode t
 
-def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max=50.):
+def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max=55., w = 1.0):
     #i_max = 50. #5. # (some unit)
     # t0=50. # ms
     #dts = 10.
-    w = 1. #ms
+    # w = 1. #ms
     for (i,neuron) in enumerate(net.layers[0].nodes()):
         neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[0],w) # the jitcode t
     for neuron in net.layers[1].nodes():
@@ -125,14 +125,25 @@ def const_current(net, num_layers, neuron_inds, current_vals):
         for i in range(len(neuron_inds[l])):
             layer_list[neuron_inds[l][i]].i_inj = current_vals[l][i]
 
+
+'''
+Feeds in different classes of poisson spike trains
+
+net: the network
+base_rate: draw rates for the classes from gaussian around the mean 'base rate'
+i_max: maximum current of the poisson spike
+num_sniffs: number of times we feed in a random class
+time_per_sniff: length of the spike train per class
+'''
 def feed_gaussian_rate_poisson_spikes(
-    net, base_rate, i_max=50., num_sniffs=10, time_per_sniff=100.):
-    #i_max = 50. #5. # (some unit)
-    if len(net.layers[0].nodes()) != 2:
-        print("not yet done")
-        return
+    net, base_rate, i_max=50., num_sniffs=5, time_per_sniff=100.):
+    # i_max = 50. #5. # (some unit)
+    # if len(net.layers[0].nodes()) != 2:
+    #     print("not yet done")
+    #     return
     # will draw one class at a time
-    num_class = 2
+    num_class = len(net.layers[0].nodes())
+    #Will return vector of classes. Feed in classes in random order
     classes = np.random.randint(num_class, size=num_sniffs)
     t0 = 0.
     w = 1.
@@ -145,6 +156,29 @@ def feed_gaussian_rate_poisson_spikes(
             print("Input dimension does not match!")
         for (n, neuron) in enumerate(net.layers[0].nodes()):
             neuron.i_inj += i_injs[n]
+
+def feed_gaussian_rate_poisson_spikes_DL(
+    net, base_rate, i_max=50., num_sniffs=5, time_per_sniff=100.):
+    # i_max = 50. #5. # (some unit)
+    # if len(net.layers[0].nodes()) != 2:
+    #     print("not yet done")
+    #     return
+    # will draw one class at a time
+    num_class = 2
+    num_input = len(net.layers[0].nodes())
+    #Will return vector of classes. Feed in classes in random order
+    classes = np.random.randint(num_class, size=num_sniffs)
+    t0 = 0.
+    w = 1.
+    spatial_idex = np.random.randint(num_class, size=num_input)
+    for i in range(num_sniffs):
+        c = classes[i]
+        rates = base_rate*draw_from_gaussian_clusters(c)[0]
+        i_injs, _ = get_poisson_spike_train(rates, t0=t0, time_total=time_per_sniff,i_max=i_max)
+        t0 += time_per_sniff
+        for (n, neuron) in enumerate(net.layers[0].nodes()):
+            class_num = spatial_idex[n]
+            neuron.i_inj += i_injs[class_num]
 
 
 

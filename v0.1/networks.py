@@ -112,6 +112,16 @@ def fully_connect_between_g(net, subgraph_1, subgraph_2, SynapseClass, g):
             # order matters when adding edges
             net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass(g))
 
+#self connect network without connection node to itself
+def fully_selfconnect(net, subgraph, SynapseClass):
+    pre_neurons, pos_neurons = subgraph.nodes(), subgraph.nodes()
+    for pos_neuron in pos_neurons:
+        for pre_neuron in pre_neurons:
+            if pre_neuron == pos_neurons: continue
+            # order matters when adding edges
+            net.add_edge(pre_neuron, pos_neuron, synapse=SynapseClass())
+    return net
+
 """
 sparsely_connect_between(net, subgraph_1, subgraph_2, SynapseClass):
 
@@ -263,6 +273,17 @@ def draw_colored_layered_digraph(net):
         nx.draw_networkx_nodes(list(layer.nodes),pos=pos,node_color=next(cycol))
     nx.draw_networkx_edges(net,pos=pos)
     plt.show()
+
+
+# Build a simple demonstration classifier
+
+def get_stdp_net(NeuronClass, KcBlSynapseClass, BlSynapseClass, neuron_nums):
+    num_layer = len(neuron_nums)
+    bl = get_single_layer(NeuronClass, neuron_nums[1], label="BLs")
+    bl = fully_selfconnect(bl, bl, BlSynapseClass)
+    kc = get_single_layer(NeuronClass, neuron_nums[0])
+    net = fully_connect(kc, bl, KcBlSynapseClass)
+    return net
 
 
 """
