@@ -60,7 +60,7 @@ def get_data(delta_time):
 
 # step 5: plot
 
-delta_time = 5
+delta_time = -5
 data = get_data(delta_time)
 
 for layer_idx in range(len(net.layers)):
@@ -69,33 +69,33 @@ for layer_idx in range(len(net.layers)):
     lm.show_all_dendrite_onto_layer(
         time_sampled_range, data, net, layer_idx, delta_time)
 
-# stdp profile
-
-DT = np.linspace(-20,30,101)
-print(DT)
-DW = np.zeros(len(DT))
-##############
-ca_index = 8
-p0_index = 9
-p1_index = 10
-##############
-for (i,dt) in enumerate(DT):
-    data = get_data(dt)
-    #dimension index of calcium and stdp weight
-    data_ca = data[:,NUM_NEURON*NUM_DIM_NEURON + ca_index]
-    data_p0 = data[:,NUM_NEURON*NUM_DIM_NEURON + p0_index]
-    data_p1 = data[:,NUM_NEURON*NUM_DIM_NEURON + p1_index]
-    data_p2 = 1 - data_p0 - data_p1
-    data_w = synapse_type.G0*data_p0 + synapse_type.G1*data_p1 + synapse_type.G2*data_p2
-    DW[i] = (data_w[-1] - data_w[0])
-
-np.savetxt('stdp.txt', np.transpose([DT, DW]))
-
-fig = plt.figure(figsize = (10, 7))
-plt.plot(DT,DW,marker=".",color="black", linewidth = 2)
-plt.title('STDP Curve', fontsize = 30)
-plt.ylabel(r"$\Delta W$", fontsize = 20)
-
-plt.xlabel(r"$\Delta t$ [ms]", fontsize = 20)
-plt.show()
-fig.savefig("stdp.png", dpi=500, bbox_inches = 'tight')
+# # stdp profile
+#
+# DT = np.linspace(-20,30,101)
+# print(DT)
+# DW = np.zeros(len(DT))
+# ##############
+# ca_index = 8
+# p0_index = 9
+# p1_index = 10
+# ##############
+# for (i,dt) in enumerate(DT):
+#     data = get_data(dt)
+#     #dimension index of calcium and stdp weight
+#     data_ca = data[:,NUM_NEURON*NUM_DIM_NEURON + ca_index]
+#     data_p0 = data[:,NUM_NEURON*NUM_DIM_NEURON + p0_index]
+#     data_p1 = data[:,NUM_NEURON*NUM_DIM_NEURON + p1_index]
+#     data_p2 = 1 - data_p0 - data_p1
+#     data_w = synapse_type.G0*data_p0 + synapse_type.G1*data_p1 + synapse_type.G2*data_p2
+#     DW[i] = (data_w[-1] - data_w[0])
+#
+# np.savetxt('stdp.txt', np.transpose([DT, DW]))
+#
+# fig = plt.figure(figsize = (10, 7))
+# plt.plot(DT,DW,marker=".",color="black", linewidth = 2)
+# plt.title('STDP Curve', fontsize = 30)
+# plt.ylabel(r"$\Delta W$", fontsize = 20)
+#
+# plt.xlabel(r"$\Delta t$ [ms]", fontsize = 20)
+# plt.show()
+# fig.savefig("stdp.png", dpi=500, bbox_inches = 'tight')

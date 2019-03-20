@@ -136,14 +136,13 @@ num_sniffs: number of times we feed in a random class
 time_per_sniff: length of the spike train per class
 '''
 def feed_gaussian_rate_poisson_spikes(
-    net, base_rate, i_max=50., num_sniffs=10, time_per_sniff=100.):
-    #i_max = 50. #5. # (some unit)
+    net, base_rate, i_max=50., num_sniffs=5, time_per_sniff=100.):
+    # i_max = 50. #5. # (some unit)
     # if len(net.layers[0].nodes()) != 2:
     #     print("not yet done")
     #     return
     # will draw one class at a time
     num_class = len(net.layers[0].nodes())
-
     #Will return vector of classes. Feed in classes in random order
     classes = np.random.randint(num_class, size=num_sniffs)
     t0 = 0.
@@ -157,6 +156,29 @@ def feed_gaussian_rate_poisson_spikes(
             print("Input dimension does not match!")
         for (n, neuron) in enumerate(net.layers[0].nodes()):
             neuron.i_inj += i_injs[n]
+
+def feed_gaussian_rate_poisson_spikes_DL(
+    net, base_rate, i_max=50., num_sniffs=5, time_per_sniff=100.):
+    # i_max = 50. #5. # (some unit)
+    # if len(net.layers[0].nodes()) != 2:
+    #     print("not yet done")
+    #     return
+    # will draw one class at a time
+    num_class = 2
+    num_input = len(net.layers[0].nodes())
+    #Will return vector of classes. Feed in classes in random order
+    classes = np.random.randint(num_class, size=num_sniffs)
+    t0 = 0.
+    w = 1.
+    spatial_idex = np.random.randint(num_class, size=num_input)
+    for i in range(num_sniffs):
+        c = classes[i]
+        rates = base_rate*draw_from_gaussian_clusters(c)[0]
+        i_injs, _ = get_poisson_spike_train(rates, t0=t0, time_total=time_per_sniff,i_max=i_max)
+        t0 += time_per_sniff
+        for (n, neuron) in enumerate(net.layers[0].nodes()):
+            class_num = spatial_idex[n]
+            neuron.i_inj += i_injs[class_num]
 
 
 

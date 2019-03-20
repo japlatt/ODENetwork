@@ -1446,11 +1446,12 @@ class SynapseWithDendrite:
     form for updating weight parameters.
     """
     # Parameters:
+    I_DC = 0 # -0.85 #modify the level of rest potential
     COND_CA = 4e-6 * 0.18 # Max. Ca conductance, unit: mScm^-2
     COND_NMDA = 0.005 * 5.5 #amplitude 4
     reducing_factor = 1
     # conductance from soma to dendrite
-    COND_SOMA_DEND = 1
+    COND_SOMA_DEND = 1.0
     COND_DEND_SOMA = 3.5
 
     INMDA_TO_CA = 0.0298/0.005 * reducing_factor
@@ -1586,7 +1587,7 @@ class SynapseWithDendrite:
         ca_vgcc = self.ICA_TO_CA*self.i_ca(v,a,b)
 
         # membrane potential and gating variables of dendrite
-        yield 1/self.CAP_MEM*(i_base + self.i_syn(v) + i_sd - 0.85)
+        yield 1/self.CAP_MEM*(i_base + self.i_syn(v) + i_sd + self.I_DC)
         yield self.alpha_m(v)*(1-m) - self.beta_m(v)*m
         yield self.alpha_h(v)*(1-h) - self.beta_h(v)*h
         yield self.alpha_n(v)*(1-n) - self.beta_n(v)*n
