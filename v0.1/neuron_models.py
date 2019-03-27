@@ -1517,7 +1517,7 @@ class PN_2:
 
 
     def get_initial_condition(self):
-        return [-65.0, 0.05, 0.6, 0.32, 0.6, 0.6]
+        return [-65.0+np.random.normal(0,2.0), 0.05+np.random.uniform()*0.1, 0.8 + np.random.uniform()*0.2, 0.2+np.random.uniform()*0.3, 0.1+np.random.uniform()*0.1, 0.8+np.random.uniform()*0.2]
 
     def get_ind(self):
         return self.ii
@@ -1642,7 +1642,7 @@ class LN:
         yield self.dCa_dt(VV, ss, vv, Ca)
 
     def get_initial_condition(self):
-        return [-60.0, 0.0, 0.0, 0.8, 0.0, 0.2]
+        return [-60.0 + np.random.normal(0,2), 0.0+np.random.uniform()*0.1, 0.0+np.random.uniform()*0.1, 0.8+np.random.uniform()*0.2, 0.0+np.random.uniform()*0.1, 0.2+np.random.uniform()*0.3]
 
     def get_ind(self):
         return self.ii
@@ -1786,7 +1786,7 @@ class Synapse_gaba_LN_with_slow:
     REV_PO_K = -95.0 # mV
 
     DIM = 3
-    def __init__(self, gGABA = 400.0, gSI = 400.0):
+    def __init__(self, gGABA = 400.0, gSI = 125.0):
         self.r_gate = None
         self.s_gate = None
         self.g_gate = None
@@ -2832,6 +2832,71 @@ class Synapse_KCGNN:
         print(a)
         return a
 
+class Synapse_nAch_TD:
+
+    RE_PO_NACH = 0.0
+    r1 = 1.5 #1.5
+    tau = 1.0 #1
+    Kp = 1.5
+    Vp = 0.0 # -20 for gaba
+
+    DIM = 1
+    def __init__(self, g = 3.0):
+        self.r_gate = None
+        self.syn_weight = 1.0
+        self.COND_NACH = g
+
+
+    def set_integration_index(self, i):
+        """
+        Sets the integration index and state variable indicies.
+
+        Args:
+            i (int): integration variable index
+        """
+        self.ii = i
+        self.r_gate = y(i)
+
+    def get_ind(self):
+        return self.ii
+
+    def fix_weight(self, w):
+        self.syn_weight = w
+
+    def dydt(self, pre_neuron, pos_neuron):
+        """
+        A function that will be used for integration. Necessary for jitcode.
+
+        Args:
+            pre_synapses: A list of all synapse objects connected pre-synaptically
+                to this synapse
+            pre_neurons: A list of all neuron objectes connected pre-synaptically
+                to this synapse
+        """
+        Vpre = pre_neuron.v_mem
+        r = self.r_gate
+        yield (self.r_inf(Vpre) - r)/(self.tau*(self.r1-self.r_inf(Vpre)))
+        pulse(t,t0,0.3)
+    def r_inf(self,V): return 0.5*(1.0-sym_backend.tanh(-0.5*(V - self.Vp)/self.Kp))
+
+    def get_params(self):
+        return [self.COND_NACH, self.RE_PO_NACH]
+
+    def get_initial_condition(self):
+        return [0.0+np.random.uniform()*0.01]
+
+    def i_syn_ij(self, v_pos):
+        """
+        A function which calculates the total synaptic current
+        Args:
+            v_pos (float): The membrane potential of the post synaptic neuron
+        Returns:
+            A value for the total synaptic current, used by the post-synaptic cell
+        """
+        rho = self.COND_NACH*self.r_gate
+        wij = self.syn_weight
+        return wij*rho*(v_pos - self.RE_PO_NACH)
+
 """
 We do not current use the models below, but will be kept below.
 -------------------------------------------------------------------------------
@@ -2916,7 +2981,7 @@ we've altered the synapse dynamics to remove time dependence. Use PN_2 class ins
 """
 class PN:
         # Constants for PNs
-    CAP_MEM  =   142.0 # membrane capacitance, in pF
+    CAP_MEM  =   290.0 # membrane capacitance, in pF
 
     # maximum conducances, in nS
     COND_NA =   7150.0
@@ -2931,7 +2996,7 @@ class PN:
     REV_PO_LEAK  = -55.0
     REV_PO_K_LEAK = -95.0
 
-    shift = 70.0
+    shift = 65.0
     DIM = 6
 
     def __init__(self, para = None):
@@ -3013,19 +3078,26 @@ class PN:
     def dz_dt(self, V, z): return (self.z0(V)-z)/self.tz(V)
     def du_dt(self, V, u): return (self.u0(V)-u)/self.tu(V)
 
+    #def a_m(self, V): return 0.32*(V + 37)/(1 - sym_backend.exp(-(V + 37)/4.0))
     def a_m(self, V): return 0.32*(V - 13.1+self.shift)/(1 - sym_backend.exp(-(V - 13.1+self.shift)/4.0))
+    #def b_m(self, V): return 0.28*(V + 10)/(sym_backend.exp((V+10.0)/5.0)-1)
     def b_m(self, V): return 0.28*(V - 40.1+self.shift)/(sym_backend.exp((V-40.1+self.shift)/5.0)-1)
 
+    #def a_h(self, V): return 0.128*sym_backend.exp(-(V+33.0)/18.0)
     def a_h(self, V): return 0.128*sym_backend.exp(-(V-17.0+self.shift)/18.0)
+    #def b_h(self, V): return 4.0/(1+sym_backend.exp(-(V+10.0)/5.0))
     def b_h(self, V): return 4.0/(1+sym_backend.exp(-(V-40+self.shift)/5.0))
 
+    #def a_n(self, V): return 0.032*(V+35.0)/(1.0-sym_backend.exp(-(V+35.0)/5.0))
     def a_n(self, V): return 0.016*(V-35.1+self.shift)/(1-sym_backend.exp(-(V-35.1+self.shift)/5.0))
+    #def b_n(self, V): return 0.5*sym_backend.exp(-(V+40.0)/40.0)
     def b_n(self, V): return 0.25*sym_backend.exp(-(V-20+self.shift)/40.0)
 
     def z0(self, V): return 0.5*(1-sym_backend.tanh(-0.5*(V+60)/8.5))
-    def tz(self, V): return 0.25/(sym_backend.exp((V+35.8)/19.7)+sym_backend.exp(-(V+79.7)/12.7)+0.09)
+    #def tz(self, V): return 0.25/(sym_backend.exp((V+35.8)/19.7)+sym_backend.exp(-(V+79.7)/12.7)+0.09)
+    def tz(self, V): return 0.25/(sym_backend.exp((V+35.8)/19.7)+sym_backend.exp(-(V+79.7)/12.7)+0.37)
 
-    def u0(self, V): return 0.5*(1-sym_backend.tanh(0.5*(V+78)/6.0))
+    def u0(self, V): return 0.5*(1-sym_backend.tanh(0.5*(V+78.0)/6.0))
 
     #adapted from bazhenov
     def tu(self, V):
@@ -3033,7 +3105,7 @@ class PN:
                     +4.8/2*(1+sym_backend.tanh((V+57)/3))
 
     def i_na(self, V, m, h): return self.COND_NA*m**3*h*(V - self.REV_PO_NA) #nS*mV = pA
-    def i_k(self, V, n): return self.COND_K*n*(V - self.REV_PO_K)
+    def i_k(self, V, n): return self.COND_K*n**4*(V - self.REV_PO_K)
     def i_leak(self, V): return self.COND_LEAK*(V - self.REV_PO_LEAK)
     def i_a(self, V, z, u): return self.COND_A*z**4*u*(V - self.REV_PO_K)
     def i_k_leak(self, V): return self.COND_K_LEAK*(V - self.REV_PO_K_LEAK)

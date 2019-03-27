@@ -40,15 +40,15 @@ def bins(data, bin_size):
 #run command
 
 #folder with exported data
-folder_prefix = 'results/'
-num_odors = 3  # Different spatial injections
+folder_prefix = ''
+num_odors = 2  # Different spatial injections
 num_conc = 1  # Different current amplitudes
 num_trials = 1  # trials will get averaged -- useful in stochastic network
 
 # load data
 tot_data = []
 # Loads all files
-for i in sorted(glob.glob('{0}AL*_od*_inj*'.format(folder_prefix))):
+for i in sorted(glob.glob('{0}PN*od*inj*'.format(folder_prefix))):
     name = i
     tot_data.append(np.load(name))
 
@@ -93,5 +93,5 @@ Xk = pca.transform(data.T)
 # Xorg = pca.transform(np.asarray(avg_data).T)
 for i in range(num_odors):
 	for j in range(num_conc):
-		np.savetxt('results/odor{0}_conc{1}.txt'.format(i,j), Xk[(i*num_conc+j)*single_ts:(i*num_conc+j+1)*single_ts])
+		np.savetxt('{2}odor{0}_conc{1}.txt'.format(i,j,folder_prefix), Xk[(i*num_conc+j)*single_ts:(i*num_conc+j+1)*single_ts])
 # print(Xk.shape)
