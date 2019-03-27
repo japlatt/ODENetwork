@@ -26,14 +26,13 @@ from jitcode import t # symbolic time varibale, useful for defining currents
 a simple experiment playing with calcium-based STDP in a 2-layer FC network
 """
 
-def pulse_on_layer(net, layer_idx, t0=50., i_max=50.):
-    w = 1. #ms
+def pulse_on_layer(net, layer_idx, t0=50., i_max=50.,w=1.):
     for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
         neuron.i_inj = i_max*electrodes.unit_pulse(t,t0,w) # the jitcode t
 
-def pulse_train_on_layer(net, layer_idx, t0s, i_max=50.):
-    w = 1. #ms
+def pulse_train_on_layer(net, layer_idx, t0s, i_max=50.,w=1.):
     i_inj = i_max*sum(electrodes.unit_pulse(t,t0,w) for t0 in t0s)
+
     for (i,neuron) in enumerate(net.layers[layer_idx].nodes()):
         neuron.i_inj = i_inj # the jitcode t
 
@@ -47,10 +46,9 @@ def delay_pulses_on_layer_0_and_1(net, t0s=[0., 20], i_max=55., w = 1.0):
     for neuron in net.layers[1].nodes():
         neuron.i_inj = i_max*electrodes.unit_pulse(t,t0s[1],w)
 
-def constant_current_on_top_layer(net, i_max=50.):
+def constant_current_on_top_layer(net, i_max=50.,w=1.):
     #i_max = 50. #5. # (some unit)
     t0 = 50. # ms
-    dt = 10.
     w = 1. #ms
     for neuron in net.layers[0].nodes():
         neuron.i_inj = i_max
@@ -124,6 +122,19 @@ def const_current(net, num_layers, neuron_inds, current_vals):
         layer_list = list(layer)
         for i in range(len(neuron_inds[l])):
             layer_list[neuron_inds[l][i]].i_inj = current_vals[l][i]
+
+def gradual_current_increase(net, num_layers, neuron_inds, max_current,tr=20, tf=50, w=100):
+    # Defining the stimuli structure. tr is rise time, tf is fall time, w is time
+    # for constant current
+    def gradual_stimulus(t,tr,tf,w):
+        return 2*(electrodes.sigmoid(t*7.0/tr) - 0.5)*electrodes.sigmoid((w+tr-t)*7/tf)
+
+    for l in range(num_layers):
+        layer = net.layers[l].nodes()
+        layer_list = list(layer)
+        for i in range(len(neuron_inds[l])):
+            layer_list[neuron_inds[l][i]].i_inj = gradual_stimulus(t,tr,tf,w)*max_current[l][i]
+
 
 
 '''

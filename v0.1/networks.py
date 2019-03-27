@@ -364,7 +364,7 @@ Not sure whether PNs are connected between each others.
 def get_glomeruli(*, num_pn, num_ln,
     PNClass, LNClass, PNSynapseClass, LNSynapseClass,
     prob_p2p=0., prob_p2l=0.5, prob_l2p=0.5, prob_l2l=0.5,
-    gLN = 100.0, gLNPN = 400.0, gPN = -1.0, gPNLN = 600.0):
+    gLN = 1.0, gLNPN = 4.0, gPN = -1.0, gPNLN = 6.0):
     #pn_graph = fast_gnp_random_graph(num_pn, prob_p2p, directed=True) # Erdos-Renyi
     #pns = get_single_layer(PNClass, num_pn, label="pn", graph=pn_graph)
     pns = get_single_layer(PNClass, num_pn, label="PNs")
@@ -388,32 +388,42 @@ The AL consists of num_glo glomerulus.
 The LNs in each glomeruli connect to PNs and LNs in other glomeruli
 probabilistically with prob_l2p and prob_l2l, respectively.
 """
-def get_antennal_lobe(*, num_glo, glo_para,
-    prob_p2p=0., prob_p2l=0.5, prob_l2p=0.5, prob_l2l=0.5,
-    gLN = 100.0, gLNPN = 400.0, gPN = -1.0, gPNLN = 600.0):
+def get_antennal_lobe(*, num_glo, glo_para, al_prob_para, al_cond_para):
     # first propulate glomerulus
     net = LayeredDiGraph()
     net.layers = []
     net.labels = []
     for i in range(num_glo):
-        glo = get_glomeruli(**glo_para)
+        glo = get_glomeruli(**glo_para,**al_prob_para,**al_cond_para)
         layers_, labels_ = net.layers, net.labels
         net = nx.compose(net, glo)
         net.layers = layers_ + [glo]
         net.labels = labels_ + ["glo_{}".format(i)]
     # # For each glomeruli, connect LNs to all glomeruli
     LNSynapseClass = glo_para["LNSynapseClass"]
+    PNSynapseClass = glo_para["PNSynapseClass"]
+    prob_p2p = al_prob_para.get("prob_p2p",0.0)
+    prob_l2p = al_prob_para.get("prob_l2p",0.5)
+    prob_p2l = al_prob_para.get("prob_p2l",0.5)
+    prob_l2l = al_prob_para.get("prob_l2l",0.5)
+    gLN = al_cond_para.get("gLN",1.0)
+    gPN = al_cond_para.get("gPN",-1.0)
+    gLNPN = al_cond_para.get("gLNPN",4.0)
+    gPNLN = al_cond_para.get("gPNLN",6.0)
     for glo_1 in net.layers:
         for glo_2 in net.layers:
+            pns_1 = glo_1.layers[0]
             lns_1 = glo_1.layers[1]
             pns_2 = glo_2.layers[0]
             lns_2 = glo_2.layers[1]
+            if gPN >= 0:
+                sparsely_connect_between_g(net, pns_1, pns_2, PNSynapseClass, prob_p2p, gPN)
+            if gPNLN >= 0:
+                sparsely_connect_between_g(net, pns_1, lns_2, PNSynapseClass, prob_p2l, gPNLN)
             if gLNPN >= 0:
-                sparsely_connect_between_g(
-                net, lns_1, pns_2, LNSynapseClass, prob_l2p, gLNPN)
+                sparsely_connect_between_g(net, lns_1, pns_2, LNSynapseClass, prob_l2p, gLNPN)
             if gLN >= 0:
-                sparsely_connect_between_g(
-                net, lns_1, lns_2, LNSynapseClass, prob_l2l, gLN)
+                sparsely_connect_between_g(net, lns_1, lns_2, LNSynapseClass, prob_l2l, gLN)
     return net
 
 
@@ -444,11 +454,8 @@ def get_beta_lobe(*, num_bl, BLClass, BLSynapseClass, prob_b2b=0.5):
 
 """
 get_olfaction_net(*, rn_para, al_para, mb_para, bl_para)
-
-TODO: Edit to allow different conductances. Use sparsely_connect_between_g.
 """
-
-def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
+def get_olfaction_net(*, al_para, mb_para, bl_para, al_prob_para, al_cond_para, other_para): #rn_para,
     # RNSynapseClass = rn_para["RNSynapseClass"]
     PNSynapseClass = al_para["glo_para"]["PNSynapseClass"]
     KCSynapseClass = mb_para["KCSynapseClass"]
@@ -462,7 +469,7 @@ def get_olfaction_net(*, al_para, mb_para, bl_para, other_para): #rn_para,
     gKCtoGNN = other_para["gKCGNN"]
     gKCtoBL = other_para["gKCBL"]
     # rn = get_receptor_neurons(**rn_para)
-    al = get_antennal_lobe(**al_para)
+    al = get_antennal_lobe(**al_para,al_cond_para=al_cond_para,al_prob_para=al_prob_para)
     mb = get_mushroom_body(**mb_para)
     bl = get_beta_lobe(**bl_para)
     layers = [al, mb, bl]
@@ -527,12 +534,7 @@ def interconnect(layer1, layer2, synapse1, synapse2, prob1, prob2, g1, g2):
 '''
 Helper function to create_AL_man. Makes edge connections between neurons.
 '''
-def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 400.0, gLNPN = 800.0, gPN = 350.0, gPNLN = 300.0 ):
-    #test values
-    gLN = 110.0 #400
-    gLNPN = 400.0 #800
-
-
+def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 110.0, gLNPN = 400.0, gPN = 350.0, gPNLN = 600.0 ):
     #connect LNs together
     connect_layer(LNs, LNSynapse, 1.0, gLN)
 
@@ -553,12 +555,12 @@ def manual_connect(LNs, PNs, LNSynapse, PNSynapse, gLN = 400.0, gLNPN = 800.0, g
     AL = nx.compose(LNs, PNs)
     nLN, nPN = list(LNs.nodes()), list(PNs.nodes())
 
-    AL.add_edge(nLN[0], nPN[0], synapse = LNSynapse(gLNPN))
-    AL.add_edge(nLN[0], nPN[1], synapse = LNSynapse(gLNPN))
-    AL.add_edge(nLN[0], nPN[2], synapse = LNSynapse(gLNPN))
-    AL.add_edge(nLN[1], nPN[3], synapse = LNSynapse(gLNPN))
-    AL.add_edge(nLN[1], nPN[4], synapse = LNSynapse(gLNPN))
-    AL.add_edge(nLN[1], nPN[5], synapse = LNSynapse(gLNPN))
+    AL.add_edge(nLN[0], nPN[0], synapse = LNSynapse(gGABA=gLNPN))
+    AL.add_edge(nLN[0], nPN[1], synapse = LNSynapse(gGABA=gLNPN))
+    AL.add_edge(nLN[0], nPN[2], synapse = LNSynapse(gGABA=gLNPN))
+    AL.add_edge(nLN[1], nPN[3], synapse = LNSynapse(gGABA=gLNPN))
+    AL.add_edge(nLN[1], nPN[4], synapse = LNSynapse(gGABA=gLNPN))
+    AL.add_edge(nLN[1], nPN[5], synapse = LNSynapse(gGABA=gLNPN))
 
     AL.add_edge(nPN[1], nLN[0], synapse = PNSynapse(gPNLN))
     AL.add_edge(nPN[3], nLN[0], synapse = PNSynapse(gPNLN))

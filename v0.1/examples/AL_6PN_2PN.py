@@ -4,7 +4,7 @@ inhibitory local neurons and two projection neurons. The archtecture
 of the network can be seen in Bazhenov's 2001 paper. This small network
 demonstrates key characteristics in a large antennal lobe: (1) competition
 between mutually inhibited local neurons and (2) transient synchrony of
-projection neurons with the local field potential. Connections here are 
+projection neurons with the local field potential. Connections here are
 made manually as random connections on such a small network cause issue
 '''
 
@@ -36,14 +36,15 @@ from itertools import chain
 #First number is #LNs, second is #PNs
 neuron_nums = [2, 6]
 
-AL = net.create_AL_man(nm.LN, nm.PN_2, nm.Synapse_gaba_LN, nm.Synapse_nAch_PN_2,gLN=110.0,gLNPN = 400.0)
+AL = net.create_AL_man(nm.LN, nm.PN_2, nm.Synapse_gaba_LN, nm.Synapse_nAch_PN_2,gPNLN=400,gLN=110,gLNPN = 200,gPN=300)
 
+#AL = net.create_AL_man(nm.LN, nm.PN_2, nm.Synapse_gaba_LN, nm.Synapse_nAch_PN_2)
 #Set up the experiment
 num_layers = 2
 
 #The value of the input current is 400 pA
-val = 400 #pA
-
+val = 250 #nA
+#val = 400
 #These are the neuron indicies within each layer which receive the current
 neuron_inds=[[0,1],[1,3]]
 current_vals = [[val,val],[val,val]]
@@ -55,7 +56,7 @@ ex.const_current(AL, num_layers, neuron_inds, current_vals)
 f, initial_conditions, neuron_inds  = lm.set_up_lab(AL)
 
 #run for specified time with dt
-time_len = 600.0 #Run for 600 ms
+time_len = 1000.0 #Run for 600 ms
 dt = 0.02 # Integration time step 0.02 ms
 time_sampled_range = np.arange(0., time_len, dt)
 
@@ -68,12 +69,12 @@ all_neurons = AL.layers[1].nodes()
 for (n, neuron) in enumerate(all_neurons):
     ii = neuron.ii
     V_vec.append(data[:,ii])
-np.save('AL_data_62', V_vec)
+#np.save('AL_data_62', V_vec)
 
 
 # This is code generated to plot this specific example. There are other plotting
 # functions within the lab_manager file.
-
+#lm.show_all_neuron_in_layer(time_sampled_range,data,AL,1)
 import matplotlib
 import matplotlib.pyplot as plt
 from itertools import cycle
@@ -105,6 +106,7 @@ for (n, neuron) in enumerate(n0):
 
 for (n, neuron) in enumerate(node_list):
     ii = neuron.ii
+    v_m = data[:,ii]
     axes[n+2].plot(time_sampled_range, v_m, label=r"Projection Neuron %d"%(neuron.ni-1),color=next(cycol))
     axes[n+2].set_ylabel(r"$V_m$ [mV]")
     axes[n+2].set_title("Projection Neuron %d"%(neuron.ni-1))
