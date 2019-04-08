@@ -36,14 +36,14 @@ from itertools import chain
 #First number is #LNs, second is #PNs
 neuron_nums = [2, 6]
 
-AL = net.create_AL_man(nm.LNRescaled, nm.PNRescaled, nm.Synapse_LN_Rescaled, nm.Synapse_PN_Rescaled,gPNLN=6.0,gLN=1.1,gLNPN = 4.0,gPN=3.5)
+AL = net.create_AL_man(nm.LN, nm.PN_2, nm.Synapse_gaba_LN, nm.Synapse_nAch_PN_2,gPNLN=400,gLN=110,gLNPN = 200,gPN=300)
 
 #AL = net.create_AL_man(nm.LN, nm.PN_2, nm.Synapse_gaba_LN, nm.Synapse_nAch_PN_2)
 #Set up the experiment
 num_layers = 2
 
 #The value of the input current is 400 pA
-val = 4 #nA
+val = 250 #nA
 #val = 400
 #These are the neuron indicies within each layer which receive the current
 neuron_inds=[[0,1],[1,3]]

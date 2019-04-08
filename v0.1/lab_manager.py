@@ -67,7 +67,6 @@ def set_up_lab(net):
     #for dydt in f():
     #    print(dydt)
     #end debug
-
     
     # Impose initial conditions
     initial_conditions = []

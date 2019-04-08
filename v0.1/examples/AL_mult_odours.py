@@ -23,17 +23,18 @@ glo_para = dict(num_pn=6, num_ln=2, # flies: 3 and 30
 
 
 al_prob_para = {}
-al_cond_para = dict(gLN = 110.0, gPN = -1.0, gLNPN=400.0, gPNLN=600.0)
+al_cond_para = dict(gLN = 110, gPN = -1.0, gLNPN=200, gPNLN=600)
 al_para = dict(num_glo=15, glo_para=glo_para,al_prob_para=al_prob_para, al_cond_para=al_cond_para) # flies: 54
 
 
 AL = net.get_antennal_lobe(**al_para)
 
 
+folder_prefix = 'results/test_script/'
 # net.draw_colored_layered_digraph(AL)
 
 num_layers = len(AL.layers)
-Ibase = 150 # nA
+Ibase = 400 # nA
 p = 0.33 # probability of injecting
 
 #run for specified time with dt
@@ -83,7 +84,8 @@ for number in range(num_odors):
 			data = np.transpose(data)
 			pn_inds = np.concatenate(np.array([[n.ii for n in AL.layers[j].layers[0].nodes()] for j in range(np.shape(AL.layers)[0])]),axis=0)
 			ln_inds = np.concatenate(np.array([[n.ii for n in AL.layers[j].layers[1].nodes()] for j in range(np.shape(AL.layers)[0])]),axis=0)
-			np.save('results/AL_3090_od{0}_inj{1}_t{2}'.format(number,Iscale,trial),data[pn_inds])
+			np.save('{3}PN_od{0}_inj{1}_t{2}'.format(number,Iscale,trial,folder_prefix),data[pn_inds])
+			np.save('{3}LN_od{0}_inj{1}_t{2}'.format(number,Iscale,trial,folder_prefix),data[ln_inds])
 			data = None
 
 
