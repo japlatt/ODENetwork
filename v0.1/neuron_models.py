@@ -1481,7 +1481,6 @@ class HHNeuronWithCaJL:
 "Hodgkin-Huxley Neuron with paramaters from Henry\
 Defined uA/cm^2"
 class HHNeuron:
->>>>>>> 467e7cf1dcebe9e7b482ccebe70becc6d443f36b
     # Constants
     CAP_MEM  =   1.0 # membrane capacitance, in uF/cm^2
 
